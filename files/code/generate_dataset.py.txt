@@ -1,0 +1,135 @@
+"""
+generate_dataset.py — 가상 공정 시뮬레이터 + QC XRD 배치 데이터셋 생성.
+
+공정 레시피(1차 소성 온도, 700 °C 후어닐링 시간, 냉각 방식, QC 스캔 시간)를 넣으면
+문헌 경향에 맞춘 '정답' 상태(rock-salt wt%, 규칙화 분율, 격자상수, 결정자 크기)가
+정해지고, 그 상태로 Cu Kα XRD 패턴을 시뮬레이션한다.
+
+문헌 경향(근거):
+  - 900 °C 1차 소성 → 산소 손실, 무질서 LNMO + rock-salt 불순물 생성; 저온 재어닐링으로 회복
+  - 700 °C 근처에서 Ni/Mn 규칙화(P4_332), 어닐링 시간에 따라 규칙상 분율 증가
+  - 800 °C 이상에서 rock-salt 1→4 % 수준으로 증가(NPD 보고)
+수치 계수는 위 경향을 재현하도록 정한 '가상' 값이며 실측 데이터가 아니다.
+
+사용: python generate_dataset.py --n 400 --out ../data
+"""
+import argparse, json, os
+import numpy as np
+import warnings
+warnings.filterwarnings("ignore")
+from lnmo_xrd import (build_structures, reference_sticks, simulate_pattern, PHASES,
+                      A_ORD, KA1, KA2)
+
+TT = np.round(np.arange(10.0, 90.0 + 1e-9, 0.02), 3)
+SPEC_RS_MAX = 1.5          # 출하 사양: rock-salt ≤ 1.5 wt%
+ORDER_BANDS = (0.3, 0.7)   # 규칙상 분율: <0.3 무질서형, 0.3–0.7 부분규칙(목표), >0.7 규칙형
+
+
+def process_model(recipe, rng):
+    """레시피 → 정답 상태 (가상 공정 모델)."""
+    T, t_ann, cooling = recipe["T_calc"], recipe["anneal_h"], recipe["cooling"]
+    rs0 = 0.2 + 6.0 / (1 + np.exp(-(T - 900) / 30))           # wt%, 산소 손실로 생성
+    rs = rs0 * np.exp(-t_ann / 18.0) * rng.lognormal(0, 0.12)  # 후어닐링으로 재흡수
+    f0 = 0.25 if cooling == "slow" else 0.05
+    f0 *= 1.0 if T < 950 else 0.6
+    f_ord = f0 + (1 - f0) * (1 - np.exp(-t_ann / 20.0))
+    f_ord = float(np.clip(f_ord + rng.normal(0, 0.03), 0, 1))
+    w_rs = float(np.clip(rs, 0, 15) / 100)
+    w_sp = 1 - w_rs
+    wfrac = {"ordered": w_sp * f_ord, "disordered": w_sp * (1 - f_ord), "rocksalt": w_rs}
+    lattice = {
+        "disordered": 8.170 + 0.0025 * rs0 + rng.normal(0, 0.0015),  # Mn3+ 증가 → 팽창
+        "ordered": A_ORD + rng.normal(0, 0.0010),
+        "rocksalt": 4.155 + rng.normal(0, 0.004),                    # Li/Ni/Mn 조성 산포
+    }
+    sp_size = 60 + 0.6 * (T - 800) + 0.8 * t_ann + rng.normal(0, 8)
+    size = {"disordered": sp_size, "ordered": sp_size,
+            "rocksalt": float(np.clip(35 + 0.15 * (T - 800) + rng.normal(0, 6), 15, 120))}
+    return wfrac, lattice, size, f_ord
+
+
+def order_class(f):
+    lo, hi = ORDER_BANDS
+    return "disordered" if f < lo else ("partial" if f <= hi else "ordered")
+
+
+def random_recipe(rng):
+    return dict(T_calc=float(np.round(rng.uniform(800, 1000), 0)),
+                anneal_h=float(rng.choice([0, 0, 2, 5, 10, 20, 40, 60])),
+                cooling=str(rng.choice(["fast", "slow"])),
+                scan_min=int(rng.choice([2, 2, 10])))
+
+
+SHOWCASE = [  # 홈페이지·발표용 대표 배치
+    ("S01", dict(T_calc=820, anneal_h=20, cooling="slow", scan_min=10)),
+    ("S02", dict(T_calc=900, anneal_h=0, cooling="fast", scan_min=10)),
+    ("S03", dict(T_calc=900, anneal_h=10, cooling="slow", scan_min=2)),
+    ("S04", dict(T_calc=950, anneal_h=0, cooling="fast", scan_min=2)),
+    ("S05", dict(T_calc=1000, anneal_h=0, cooling="fast", scan_min=10)),
+    ("S06", dict(T_calc=950, anneal_h=40, cooling="slow", scan_min=10)),
+]
+
+
+def make_batch(bid, recipe, sticks, rng, out_dir, save_components=False):
+    wfrac, lattice, size, f_ord = process_model(recipe, rng)
+    inst = (0.004 * rng.uniform(0.85, 1.15), -0.002, 0.003 * rng.uniform(0.85, 1.15))
+    zero = float(rng.normal(0, 0.015))
+    counts = 4000 if recipe["scan_min"] == 2 else 20000
+    y, comps, bg = simulate_pattern(TT, wfrac, lattice, size, sticks, inst=inst,
+                                    zero_shift=zero, peak_counts=counts, rng=rng,
+                                    bg_coef=(counts * 0.012, -counts * 1.2e-4, counts * 6e-7),
+                                    return_components=True)
+    np.savetxt(os.path.join(out_dir, "patterns", f"{bid}.xy"),
+               np.column_stack([TT, y]), fmt="%.3f %.0f",
+               header=f"{bid} Cu Ka1/Ka2 2theta(deg) counts | synthetic QC XRD (VoltSpinel virtual)")
+    if save_components:
+        np.savez_compressed(os.path.join(out_dir, "components", f"{bid}.npz"),
+                            tt=TT, y=y, bg=bg, **{p: comps[p] for p in PHASES})
+    rs_wt = 100 * wfrac["rocksalt"]
+    return dict(batch_id=bid, **recipe,
+                rs_wt=round(rs_wt, 3), w_ordered=round(wfrac["ordered"], 4),
+                w_disordered=round(wfrac["disordered"], 4), f_ordered=round(f_ord, 3),
+                a_disordered=round(lattice["disordered"], 4), a_ordered=round(lattice["ordered"], 4),
+                a_rocksalt=round(lattice["rocksalt"], 4),
+                size_spinel_nm=round(size["ordered"], 1), size_rocksalt_nm=round(size["rocksalt"], 1),
+                zero_shift=round(zero, 4), peak_counts=counts,
+                spec_pass=bool(rs_wt <= SPEC_RS_MAX), order_class=order_class(f_ord))
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--n", type=int, default=400)
+    ap.add_argument("--seed", type=int, default=20261105)
+    ap.add_argument("--out", default="../data")
+    a = ap.parse_args()
+    os.makedirs(os.path.join(a.out, "patterns"), exist_ok=True)
+    os.makedirs(os.path.join(a.out, "components"), exist_ok=True)
+    rng = np.random.default_rng(a.seed)
+    structs = build_structures()
+    sticks = reference_sticks(structs)
+    rows = [make_batch(bid, r, sticks, rng, a.out, save_components=True) for bid, r in SHOWCASE]
+    for i in range(a.n):
+        rows.append(make_batch(f"B{i+1:04d}", random_recipe(rng), sticks, rng, a.out,
+                               save_components=(i < 40)))
+    import csv
+    with open(os.path.join(a.out, "labels.csv"), "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+        w.writeheader(); w.writerows(rows)
+    for name, st in structs.items():
+        st.to(filename=os.path.join(a.out, f"ref_{name}.cif"))
+    meta = dict(
+        description="Synthetic QC XRD dataset for a virtual LNMO cathode maker (VoltSpinel). "
+                    "No experimental / DRX data used.",
+        two_theta=dict(start=10, stop=90, step=0.02), radiation=dict(Ka1=KA1, Ka2=KA2, ratio=0.5),
+        phases={"disordered": "LiNi0.5Mn1.5O4 Fd-3m", "ordered": "LiNi0.5Mn1.5O4 P4_332",
+                "rocksalt": "Li0.2Ni0.8O Fm-3m"},
+        spec=dict(rocksalt_wt_max=SPEC_RS_MAX, order_bands=ORDER_BANDS),
+        n_batches=len(rows), seed=a.seed,
+        overlap_windows=[[36.8, 38.8], [42.8, 44.9]],
+    )
+    json.dump(meta, open(os.path.join(a.out, "meta.json"), "w"), indent=2, ensure_ascii=False)
+    print(f"wrote {len(rows)} batches to {a.out}")
+
+
+if __name__ == "__main__":
+    main()

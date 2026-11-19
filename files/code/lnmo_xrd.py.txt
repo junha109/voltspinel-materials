@@ -1,0 +1,131 @@
+"""
+lnmo_xrd.py — LNMO 3상(무질서 스피넬 / 규칙 스피넬 / rock-salt) 결정구조와
+분말 XRD 패턴 시뮬레이터.
+
+모든 구조는 문헌의 Wyckoff 좌표로 직접 생성한다 (DRX 데이터 미사용).
+  - 무질서 LNMO  : Fd-3m (227, origin 2)  Li 8a, (Ni0.25Mn0.75) 16d, O 32e
+  - 규칙 LNMO    : P4_332 (212)           Li 8c, Ni 4b, Mn 12d, O 8c + 24e
+                   (Kim et al., Chem. Mater. 16, 906 (2004) 계열 좌표)
+  - rock-salt    : Fm-3m (225)            (Li0.2Ni0.8) 4a, O 4b  — Li_xNi_{1-x}O 형 불순물
+X선: Cu Kα1/Kα2 (1.54056 / 1.54439 Å, 강도비 2:1), pseudo-Voigt + Caglioti 폭.
+"""
+import numpy as np
+from pymatgen.core import Structure, Lattice
+from pymatgen.analysis.diffraction.xrd import XRDCalculator
+
+KA1, KA2 = 1.54056, 1.54439
+KA2_RATIO = 0.5
+NA = 6.02214076e23
+
+# 기준 격자상수 (Å)
+A_DISORD = 8.178   # 무질서상: Mn3+ 존재로 약간 큼
+A_ORD = 8.166      # 규칙상
+A_RS = 4.160       # Li_xNi_{1-x}O
+
+PHASES = ("disordered", "ordered", "rocksalt")
+PHASE_LABEL = {
+    "disordered": "LNMO 무질서 스피넬 (Fd-3m)",
+    "ordered": "LNMO 규칙 스피넬 (P4₃32)",
+    "rocksalt": "Li$_x$Ni$_{1-x}$O rock-salt (Fm-3m)",
+}
+
+
+def build_structures():
+    # pymatgen은 Fd-3m을 origin choice 1로 해석: Li 8a(0,0,0), TM 16d(5/8,5/8,5/8), O 32e x≈0.3875
+    s_dis = Structure.from_spacegroup(
+        "Fd-3m", Lattice.cubic(A_DISORD),
+        ["Li", {"Ni": 0.25, "Mn": 0.75}, "O"],
+        [[0, 0, 0], [0.625, 0.625, 0.625], [0.3875, 0.3875, 0.3875]])
+    s_ord = Structure.from_spacegroup(
+        212, Lattice.cubic(A_ORD),
+        ["Li", "Ni", "Mn", "O", "O"],
+        [[0.0036, 0.0036, 0.0036], [0.625, 0.625, 0.625],
+         [0.125, 0.3782, 0.8718], [0.3851, 0.3851, 0.3851],
+         [0.1460, -0.1414, 0.1280]])
+    s_rs = Structure.from_spacegroup(
+        "Fm-3m", Lattice.cubic(A_RS),
+        [{"Li": 0.2, "Ni": 0.8}, "O"], [[0, 0, 0], [0.5, 0.5, 0.5]])
+    return {"disordered": s_dis, "ordered": s_ord, "rocksalt": s_rs}
+
+
+def reference_sticks(structs, tt_range=(10, 90)):
+    """각 상의 기준 격자에서 d-간격과 '절대' 적분강도(단위셀당)를 계산.
+    격자 스케일링 시 d ∝ a 이므로 d만 비례 조정하면 된다(입방정)."""
+    calc = XRDCalculator(wavelength=KA1)
+    out = {}
+    for name, st in structs.items():
+        p = calc.get_pattern(st, scaled=False, two_theta_range=(tt_range[0] - 3, tt_range[1] + 3))
+        hkl = [tuple(h["hkl"]) for h in [hh[0] for hh in p.hkls]]
+        out[name] = dict(d=np.array(p.d_hkls), I=np.array(p.y), hkl=hkl,
+                         a0=float(st.lattice.a), V=float(st.volume), density=float(st.density),
+                         mass_cell=float(st.composition.weight))
+    return out
+
+
+def caglioti_fwhm(tt, U, V, W):
+    th = np.radians(tt / 2)
+    return np.sqrt(np.maximum(U * np.tan(th) ** 2 + V * np.tan(th) + W, 1e-6))
+
+
+def scherrer_fwhm(tt, size_nm, wl=KA1, K=0.9):
+    """결정자 크기에 의한 추가 폭(도)."""
+    th = np.radians(tt / 2)
+    return np.degrees(K * wl / (size_nm * 10 * np.cos(th)))
+
+
+def pseudo_voigt(x, c, fwhm, eta):
+    g = np.exp(-4 * np.log(2) * ((x - c) / fwhm) ** 2)
+    l = 1.0 / (1 + 4 * ((x - c) / fwhm) ** 2)
+    return eta * l + (1 - eta) * g
+
+
+def phase_profile(x, sticks, a, size_nm, inst, eta=0.5):
+    """한 상의 프로파일 (단위 스케일). Kα1+Kα2 이중선 포함."""
+    d = sticks["d"] * (a / sticks["a0"])
+    y = np.zeros_like(x)
+    for wl, ratio in ((KA1, 1.0), (KA2, KA2_RATIO)):
+        s = wl / (2 * d)
+        m = s < 1
+        tt = np.degrees(2 * np.arcsin(s[m]))
+        I = sticks["I"][m] * ratio
+        keep = (tt > x.min() - 2) & (tt < x.max() + 2)
+        tt, I = tt[keep], I[keep]
+        fw = np.sqrt(caglioti_fwhm(tt, *inst) ** 2 + scherrer_fwhm(tt, size_nm) ** 2)
+        for c, h, f in zip(tt, I, fw):
+            lo, hi = np.searchsorted(x, [c - 12 * f, c + 12 * f])
+            y[lo:hi] += h * pseudo_voigt(x[lo:hi], c, f, eta)
+    return y
+
+
+def weight_to_intensity_scale(wfrac, sticks):
+    """Hill–Howard: 상 p의 회절 강도 ∝ v_p / V_p^2,  v_p ∝ w_p/ρ_p (부피분율)."""
+    scales = {}
+    for p, w in wfrac.items():
+        st = sticks[p]
+        scales[p] = (w / st["density"]) / st["V"] ** 2
+    return scales
+
+
+def simulate_pattern(x, wfrac, lattice, size_nm, sticks, inst=(0.004, -0.002, 0.003),
+                     eta=0.5, zero_shift=0.0, bg_coef=(120, -1.2, 0.006),
+                     peak_counts=12000, rng=None, return_components=False):
+    """wfrac: {phase: 무게분율}, lattice: {phase: a}, size_nm: {phase: 결정자 nm}."""
+    rng = np.random.default_rng() if rng is None else rng
+    scales = weight_to_intensity_scale(wfrac, sticks)
+    xs = x - zero_shift
+    comps = {}
+    for p, w in wfrac.items():
+        if w <= 0:
+            comps[p] = np.zeros_like(x)
+            continue
+        comps[p] = scales[p] * phase_profile(xs, sticks[p], lattice[p], size_nm[p], inst, eta)
+    total = sum(comps.values())
+    k = peak_counts / total.max()
+    comps = {p: c * k for p, c in comps.items()}
+    b0, b1, b2 = bg_coef
+    bg = b0 + b1 * x + b2 * x ** 2 + 40 * np.exp(-((x - 22) / 9) ** 2)  # 비정질 험프 약간
+    ideal = sum(comps.values()) + bg
+    y = rng.poisson(np.clip(ideal, 0, None)).astype(float)
+    if return_components:
+        return y, comps, bg
+    return y

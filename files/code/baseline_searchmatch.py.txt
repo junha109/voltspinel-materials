@@ -1,0 +1,91 @@
+"""
+baseline_searchmatch.py — '기존 방식' 재현: 피크 리스트 기반 search-match 판정.
+
+상용 search-match의 기본 흐름을 단순화해 재현한다.
+  1) 배경 제거(SNIP) → 2) 자동 피크 검출(prominence ≥ 2 % of max) →
+  3) DB 참조선(NiO, bunsenite a=4.177 Å)과 ±0.20° 창 매칭 →
+  4) rock-salt 참조선이 '독립 피크'로 잡히면 불순물 검출 → 출하 불합격 판정.
+규칙화: 초격자 참조선(P4_332 전용) 중 하나라도 독립 피크로 잡히면 '규칙형' 판정.
+"""
+import numpy as np, pandas as pd, os, json
+from scipy.signal import find_peaks
+
+KA1 = 1.54056
+A_NIO_DB = 4.1771          # DB 참조 (bunsenite NiO)
+A_SPINEL_DB = 8.1700       # DB 참조 LNMO
+WIN = 0.20
+
+
+def tt_of(a, hkls):
+    d = a / np.sqrt(np.sum(np.array(hkls) ** 2, axis=1))
+    return np.degrees(2 * np.arcsin(KA1 / (2 * d)))
+
+
+RS_LINES = tt_of(A_NIO_DB, [(1, 1, 1), (2, 0, 0)])
+SP_LINES = tt_of(A_SPINEL_DB, [(1, 1, 1), (3, 1, 1), (2, 2, 2), (4, 0, 0), (3, 3, 1),
+                               (5, 1, 1), (4, 4, 0), (5, 3, 1)])
+SUPER_LINES = tt_of(A_SPINEL_DB, [(2, 1, 0), (2, 1, 1), (3, 1, 0), (3, 2, 0), (4, 1, 0)])
+
+
+def snip(y, it=60):
+    v = np.log(np.log(np.sqrt(np.clip(y, 0, None) + 1) + 1) + 1)
+    for p in range(1, it):
+        v[p:-p] = np.minimum(v[p:-p], 0.5 * (v[:-2 * p] + v[2 * p:]))
+    return (np.exp(np.exp(v) - 1) - 1) ** 2
+
+
+def detect_peaks(tt, y, rel_prom=0.02):
+    ys = y - snip(y)
+    idx, _ = find_peaks(ys, prominence=rel_prom * ys.max(), distance=5)
+    return tt[idx]
+
+
+def judge(tt, y):
+    pk = detect_peaks(tt, y)
+    # 스피넬 선에 이미 할당된 피크는 제외 (가장 가까운 참조선이 스피넬이면 스피넬로 간주)
+    def matched(lines, exclude=None):
+        hits = []
+        for L in lines:
+            near = pk[np.abs(pk - L) <= WIN]
+            for p in near:
+                if exclude is not None and np.min(np.abs(exclude - p)) < np.abs(L - p):
+                    continue
+                hits.append(p)
+        return hits
+    rs_hits = matched(RS_LINES, exclude=SP_LINES)
+    sup_hits = matched(SUPER_LINES, exclude=SP_LINES)
+    return dict(n_peaks=len(pk), rs_detected=len(rs_hits) > 0, ordered_detected=len(sup_hits) > 0)
+
+
+def main(data="../data"):
+    lab = pd.read_csv(os.path.join(data, "labels.csv"))
+    res = []
+    for _, r in lab.iterrows():
+        tt, y = np.loadtxt(os.path.join(data, "patterns", r.batch_id + ".xy"), unpack=True)
+        res.append(judge(tt, y))
+    out = pd.concat([lab, pd.DataFrame(res)], axis=1)
+    out["pred_pass"] = ~out.rs_detected
+    out.to_csv(os.path.join(data, "baseline_results.csv"), index=False)
+    tp_fail = ((~out.spec_pass) & (~out.pred_pass)).sum()
+    missed = ((~out.spec_pass) & (out.pred_pass)).sum()
+    false_alarm = ((out.spec_pass) & (~out.pred_pass)).sum()
+    bins = [0, 0.5, 1.0, 1.5, 2.5, 4, 10]
+    out["rs_bin"] = pd.cut(out.rs_wt, bins)
+    det = out.groupby(["rs_bin", "scan_min"], observed=True).rs_detected.mean().unstack()
+    ord_true = out.order_class == "ordered"
+    summary = dict(
+        n=len(out), n_fail_truth=int((~out.spec_pass).sum()),
+        caught=int(tp_fail), missed=int(missed), false_alarm=int(false_alarm),
+        pass_fail_accuracy=float((out.pred_pass == out.spec_pass).mean()),
+        miss_rate=float(missed / max((~out.spec_pass).sum(), 1)),
+        ordered_recall=float(out.ordered_detected[ord_true].mean()),
+        ordered_false_pos=float(out.ordered_detected[~ord_true].mean()),
+        detection_by_bin={str(k): {str(c): (None if pd.isna(v) else round(float(v), 3))
+                                   for c, v in row.items()} for k, row in det.iterrows()},
+    )
+    json.dump(summary, open(os.path.join(data, "baseline_summary.json"), "w"), indent=2)
+    print(json.dumps(summary, indent=2))
+
+
+if __name__ == "__main__":
+    main()
