@@ -618,7 +618,7 @@ details.nt p{font-size:14px;color:var(--ink-2);margin:6px 0 2px 0}
 .news h3{font-family:var(--f-body);font-size:15px;font-weight:600;margin:4px 0 3px;line-height:1.45}
 .news p{font-size:14px;color:var(--ink-2)}
 
-/* 메일 · 메신저 */
+/* 메일 */
 .mailbox{display:grid;grid-template-columns:330px minmax(0,1fr);min-height:600px;overflow:hidden}
 .mlist{border-right:1px solid var(--rule-2);background:var(--sheet);overflow:auto;max-height:calc(100vh - 200px)}
 .mlist .tools{display:flex;gap:8px;align-items:center;padding:12px 14px;font-size:13.5px;color:var(--ink-2);border-bottom:1px solid var(--rule-2)}
@@ -1172,7 +1172,7 @@ table.form{width:100%;border-collapse:collapse;font-size:15px}
 
 <!-- ================= 볼트넷 로그인 ================= -->
 <section id="login-view" class="login" hidden>
-  <div class="login-art"><svg viewBox="0 0 600 400" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false"><g><polygon points="452.0,57.0 422.6,90.6 456.2,99.0" fill="#2a3846"/><polygon points="452.0,57.0 456.2,99.0 481.4,89.2" fill="#22303d"/><polygon points="422.6,90.6 456.2,99.0 452.0,127.0" fill="#5a1f2b"/><polygon points="456.2,99.0 481.4,89.2 452.0,127.0" fill="#3d1520"/></g><g><polygon points="118.0,202.0 77.7,248.1 123.8,259.6" fill="#2a3846"/><polygon points="118.0,202.0 123.8,259.6 158.3,246.2" fill="#22303d"/><polygon points="77.7,248.1 123.8,259.6 118.0,298.0" fill="#5a1f2b"/><polygon points="123.8,259.6 158.3,246.2 118.0,298.0" fill="#3d1520"/></g><g><polygon points="520.0,276.0 499.8,299.0 522.9,304.8" fill="#2a3846"/><polygon points="520.0,276.0 522.9,304.8 540.2,298.1" fill="#22303d"/><polygon points="499.8,299.0 522.9,304.8 520.0,324.0" fill="#5a1f2b"/><polygon points="522.9,304.8 540.2,298.1 520.0,324.0" fill="#3d1520"/></g><ellipse cx="300" cy="372" rx="120" ry="12" fill="#000" opacity=".25"/><g><polygon points="300.0,50.0 174.0,194.0 318.0,230.0" fill="#ffffff"/><polygon points="300.0,50.0 318.0,230.0 426.0,188.0" fill="#cfd6dd"/><polygon points="174.0,194.0 318.0,230.0 300.0,350.0" fill="#d23a52"/><polygon points="318.0,230.0 426.0,188.0 300.0,350.0" fill="#8e1c30"/></g></svg><div class="cap"><h2>볼트넷</h2><p>볼트스피넬 머티리얼즈 사내 홈페이지. 메일 · 메신저 · 파일서버 · 배치 조회 · 전자결재를 한곳에서 씁니다.</p></div></div>
+  <div class="login-art"><svg viewBox="0 0 600 400" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false"><g><polygon points="452.0,57.0 422.6,90.6 456.2,99.0" fill="#2a3846"/><polygon points="452.0,57.0 456.2,99.0 481.4,89.2" fill="#22303d"/><polygon points="422.6,90.6 456.2,99.0 452.0,127.0" fill="#5a1f2b"/><polygon points="456.2,99.0 481.4,89.2 452.0,127.0" fill="#3d1520"/></g><g><polygon points="118.0,202.0 77.7,248.1 123.8,259.6" fill="#2a3846"/><polygon points="118.0,202.0 123.8,259.6 158.3,246.2" fill="#22303d"/><polygon points="77.7,248.1 123.8,259.6 118.0,298.0" fill="#5a1f2b"/><polygon points="123.8,259.6 158.3,246.2 118.0,298.0" fill="#3d1520"/></g><g><polygon points="520.0,276.0 499.8,299.0 522.9,304.8" fill="#2a3846"/><polygon points="520.0,276.0 522.9,304.8 540.2,298.1" fill="#22303d"/><polygon points="499.8,299.0 522.9,304.8 520.0,324.0" fill="#5a1f2b"/><polygon points="522.9,304.8 540.2,298.1 520.0,324.0" fill="#3d1520"/></g><ellipse cx="300" cy="372" rx="120" ry="12" fill="#000" opacity=".25"/><g><polygon points="300.0,50.0 174.0,194.0 318.0,230.0" fill="#ffffff"/><polygon points="300.0,50.0 318.0,230.0 426.0,188.0" fill="#cfd6dd"/><polygon points="174.0,194.0 318.0,230.0 300.0,350.0" fill="#d23a52"/><polygon points="318.0,230.0 426.0,188.0 300.0,350.0" fill="#8e1c30"/></g></svg><div class="cap"><h2>볼트넷</h2><p>볼트스피넬 머티리얼즈 사내 홈페이지. 메일 · 파일서버 · 배치 조회 · 전자결재를 한곳에서 씁니다.</p></div></div>
   <div class="login-form">
     <form class="lcard" id="login-form" autocomplete="off">
       <div class="lbrand"><svg class="logo" aria-hidden="true"><use href="#logo"/></svg><div><b>볼트넷</b><small>볼트스피넬 머티리얼즈 사내 홈페이지</small></div></div>
@@ -1212,7 +1212,6 @@ table.form{width:100%;border-collapse:collapse;font-size:15px}
       <a href="#portal" data-r="portal"><svg class="ic" aria-hidden="true"><use href="#i-home"/></svg>홈</a>
       <div class="grp">업무</div>
       <a href="#mail" data-r="mail"><svg class="ic" aria-hidden="true"><use href="#i-mail"/></svg>메일<span class="cnt" id="cnt-mail" hidden></span></a>
-      <a href="#chat" data-r="chat"><svg class="ic" aria-hidden="true"><use href="#i-chat"/></svg>메신저<span class="cnt" id="cnt-chat" hidden></span></a>
       <a href="#files" data-r="files"><svg class="ic" aria-hidden="true"><use href="#i-server"/></svg>파일서버</a>
       <a href="#lims" data-r="lims"><svg class="ic" aria-hidden="true"><use href="#i-flask"/></svg>배치 조회 · LIMS</a>
       <a href="#approval" data-r="approval"><svg class="ic" aria-hidden="true"><use href="#i-sign"/></svg>전자결재<span class="cnt" id="cnt-appr" hidden></span></a>
@@ -1264,7 +1263,7 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* 저장 불가 */ } }
 };
-const S = Object.assign({ read: [], reqs: [], chatSeen: false, chatReq: 0, bellSeen: 0 }, store.get("vs.state.v3", {}));
+const S = Object.assign({ read: [], reqs: [], bellSeen: 0 }, store.get("vs.state.v3", {}));
 const saveS = () => store.set("vs.state.v3", S);
 let LOGGED = false;
 try { LOGGED = (sessionStorage.getItem("vs.login") || localStorage.getItem("vs.login")) === "1"; } catch (e) { /* 무시 */ }
@@ -1408,8 +1407,23 @@ function md(src) {
   return h;
 }
 
-/* ---------- 메일 · 메신저 · 공지 ---------- */
+/* ---------- 메일 · 공지 ---------- */
 const MAILS = [
+  { id: "m5", from: "do", to: "QC-XRD 대응 TF", cc: "윤가람 선임 · 마준석 책임", date: "2026-11-05 (목) 09:20", unread: true, att: [],
+    subj: "[TF] QC-XRD 판정 자동화 — 진행 방향과 역할",
+    body: () => `<p>TF 여러분, 소재개발팀 도현우입니다. 오늘 15시 첫 회의 전에 방향을 먼저 공유합니다. 윤선임 메일(11/4)은 다들 보셨으리라 생각합니다.</p>
+<p><b>1. 문제 요약</b></p>
+<ol><li>기존 프로그램이 주상 피크 0.6–0.9° 옆에 붙은 불순물 피크를 못 잡습니다.</li><li>사람이 하면 느리고 값이 흔들립니다.</li><li>제품 유형(규칙화) 판정은 손도 못 대고 있습니다.</li></ol>
+<p><b>2. 범위</b></p>
+<ul><li>처음부터 미지상 구조 풀이 같은 것은 하지 않습니다. 후보 상 세 개(무질서 스피넬, 규칙 스피넬, rock-salt)는 정해 놓고 시작합니다.</li><li>문제가 생기는 2θ 창 두 군데(37–39°, 43–45°)에 집중합니다.</li></ul>
+<p><b>3. 목표</b></p>
+<ul><li>rock-salt wt%를 ±0.5 정도로 냅니다.</li><li>「이 판정을 믿어도 되는지」를 같이 알려 줍니다.</li><li>유형 판정은 되면 좋습니다.</li></ul>
+<p><b>4. 역할</b></p>
+<div class="tw"><table class="txt"><tr><th>김준하 연구원</th><td>판정 방법 검토. 김연구원이 제안한 구조(AI 에이전트가 분석 도구를 불러 판정하고, 신뢰도가 낮으면 재측정을 요청하고, 공정개발팀에 피드백까지 주는 구조)로 진행합니다. 13일 품질회의 전에 기존 방식이 어디서 깨지는지부터 숫자로 보여 주세요.</td></tr>
+<tr><th>윤가람 선임</th><td>자료 제공. 406건 전체 패턴과 재분석 결과는 파일서버 분석평가팀 폴더에 있고, 전자결재 열람 신청이 승인되면 바로 열어 주시기로 했습니다. 지금 Rietveld 대기열이 22배치라 2분 스캔으로 판정되면 큰 도움이 된다고 합니다.</td></tr>
+<tr><th>마준석 책임</th><td>소성로 2호기 시험 배치 피드백 요청 (11/5 공지 참고).</td></tr></table></div>
+<p class="row-btns"><a class="btn sm" href="#approval-new">${I("sign")}자료 열람 신청서 쓰기</a><a class="btn ghost sm" href="#mail-m1">${I("mail")}윤선임 메일 다시 보기</a></p>
+<p>도현우 드림<br><span class="muted">소재개발팀 팀장 · 내선 2301</span></p>` },
   { id: "m2", from: "ma", to: "QC-XRD 대응 TF", date: "2026-11-05 (목) 08:31", unread: true, att: ["proc"],
     subj: "[공지] 11월 소성로 2호기 열처리 조건 변경 시험",
     body: () => `<p>TF 여러분, 공정개발팀 마준석입니다.</p>
@@ -1449,7 +1463,7 @@ const MAILS = [
 <li>이 판정을 자동화할 수 있는 방법을 검토해 주세요. AI 활용도 열어 두고 있습니다.</li>
 <li>11월 13일(금) 품질회의에서 방향을 공유해 주시면 좋겠습니다.</li>
 </ol>
-<p>SOP와 대표 배치 6건(VS26Q3-401–406)은 첨부했습니다. 406건 전체 원시 패턴과 재분석 결과는 분석평가팀 파일서버 <span class="mono">${nas("분석평가팀", "QC_XRD", "2026Q3")}</span>에 있어요. 볼트넷 전자결재로 <b>자료 열람 신청서</b>를 올려 주시면 바로 권한을 드릴게요. 궁금한 점은 메신저로 편하게 연락 주세요.</p>
+<p>SOP와 대표 배치 6건(VS26Q3-401–406)은 첨부했습니다. 406건 전체 원시 패턴과 재분석 결과는 분석평가팀 파일서버 <span class="mono">${nas("분석평가팀", "QC_XRD", "2026Q3")}</span>에 있어요. 볼트넷 전자결재로 <b>자료 열람 신청서</b>를 올려 주시면 바로 권한을 드릴게요. 궁금한 점은 메일이나 내선(2214)으로 편하게 연락 주세요.</p>
 <p class="row-btns"><a class="btn sm" href="#approval-new">${I("sign")}자료 열람 신청서 쓰기</a><a class="btn ghost sm" href="#lims">${I("flask")}배치 조회</a></p>
 <p>윤가람 드림<br><span class="muted">분석평가팀 선임연구원 · 내선 2214</span></p>` },
   { id: "m3", from: "lee", to: "김준하 연구원", date: "2026-11-02 (월) 09:00", att: ["spec", "ref"],
@@ -1460,11 +1474,11 @@ const MAILS = [
 <p>이소율 드림<br><span class="muted">경영지원팀 매니저 · 내선 2101</span></p>` },
   { id: "m4", from: "it", to: "김준하 연구원", date: "2026-11-02 (월) 08:30", att: [],
     subj: "[정보시스템] 볼트넷 계정 · 파일서버 · 전자결재 이용 안내",
-    body: () => `<p>볼트넷은 메일 · 메신저 · 파일서버 · 배치 조회(LIMS) · 전자결재를 한곳에서 쓰는 사내 홈페이지입니다.</p>
+    body: () => `<p>볼트넷은 메일 · 파일서버 · 배치 조회(LIMS) · 전자결재를 한곳에서 쓰는 사내 홈페이지입니다.</p>
 <div class="tw"><table class="txt"><tr><th>계정</th><td>사번 VS-26-1102 · 처음 비밀번호는 인사 안내 메일 참고</td></tr>
 <tr><th>파일서버</th><td><span class="mono">${NAS}</span> — 공용 폴더와 소속 팀 폴더는 바로 열립니다. 다른 팀 폴더는 전자결재 「자료 열람 신청서」로 권한을 받습니다.</td></tr>
 <tr><th>배치 조회</th><td>LIMS에서 배치별 합성 조건 · 측정 · 현행 QC 판정을 봅니다. 정밀 재분석 값은 분석평가팀 열람 권한이 있어야 보입니다.</td></tr>
-<tr><th>외부 AI 도구</th><td>사내 자료를 외부 AI 도구(챗봇 · 코딩 에이전트)에 넣으려면 열람 신청서에 표시합니다. 정보보안 담당이 결재선에서 확인합니다.</td></tr></table></div>
+<tr><th>외부 AI 도구</th><td>사내 자료를 외부 AI 도구(챗봇 · 코딩 에이전트)에 넣으려면 열람 신청서에 도구와 범위를 적습니다. 소속 팀장이 결재에서 함께 승인합니다.</td></tr></table></div>
 <p>문의: 경영지원팀 정보시스템 내선 2100</p>` }
 ];
 const SENDER = { it: ["정보시스템", "경영지원팀 정보시스템 <it@voltspinel.co.kr>"], sys: ["전자결재", "볼트넷 전자결재 <approval@voltspinel.co.kr>"] };
@@ -1472,26 +1486,12 @@ const sName = m => SENDER[m.from] ? SENDER[m.from][0] : pn(m.from);
 const sFull = m => SENDER[m.from] ? SENDER[m.from][1] : `${P[m.from].n} ${P[m.from].r} · ${P[m.from].t} <${P[m.from].m}${MAILD}>`;
 const isUnread = m => (m.unread || m.gen) && !S.read.includes(m.id);
 function markRead(id) { if (!S.read.includes(id)) { S.read.push(id); saveS(); } }
-const TF = [
-  { day: "2026년 11월 5일 목요일" },
-  { p: "do", tm: "09:02", t: "준하 씨, 어제 윤선임 메일 봤죠?" },
-  { me: true, tm: "09:04", t: "네 팀장님, 첨부 자료부터 보고 있습니다." },
-  { p: "do", tm: "09:06", t: "요약하면 세 가지예요. ① 기존 프로그램이 주상 피크 0.6–0.9° 옆에 붙은 불순물 피크를 못 잡는다 ② 사람이 하면 느리고 값이 흔들린다 ③ 제품 유형(규칙화) 판정은 손도 못 대고 있다." },
-  { p: "do", tm: "09:07", t: "처음부터 미지상 구조 풀이 같은 거 하려고 하지 말고, 후보 상 세 개(무질서 스피넬, 규칙 스피넬, rock-salt)는 정해 놓고 시작해요. 문제가 생기는 2θ 창 두 군데(37–39°, 43–45°)에 집중하고요." },
-  { p: "do", tm: "09:08", t: "목표는 rock-salt wt%를 ±0.5 정도로 내는 것, 그리고 ‘이 판정을 믿어도 되는지’를 같이 알려주는 거예요. 유형 판정은 되면 좋고요." },
-  { me: true, tm: "09:12", t: "AI 에이전트가 분석 도구를 호출해서 판정하고, 신뢰도가 낮으면 재측정을 요청하고, 결과를 공정개발팀에 피드백까지 주는 구조로 검토해 보겠습니다." },
-  { p: "do", tm: "09:14", t: "좋아요. 13일 품질회의 전에 기존 방식이 어디서 깨지는지부터 숫자로 보여줘요. 마책임님도 2호기 피드백 기다리고 있어요." },
-  { p: "yoon", tm: "09:18", t: "참고로 Rietveld 대기열 지금 22배치예요. 2분 스캔 데이터도 판정되면 정말 큰 도움이 됩니다." },
-  { p: "yoon", tm: "09:20", t: "406건 전체 패턴이랑 재분석 결과는 파일서버 분석평가팀 폴더에 있어요. 전자결재로 열람 신청 올려 주시면 바로 열어 드릴게요." }
-];
-const DM = [{ day: "2026년 11월 2일 월요일" }, { p: "lee", tm: "10:15", t: "준하 씨, 사원증은 본관 1층 경영지원팀에서 받으시면 됩니다. 사진은 오늘 오후 3시에 찍어요." }, { me: true, tm: "10:17", t: "네, 3시에 내려가겠습니다. 감사합니다!" }];
-const typed = { tf: [], dm: [] };
 const NOTICES = [
   { tag: "교육", c: "green", t: "교육 자료 게시 — 열처리 조건과 상 변화 · XRD 판정 기초", d: "11-04", by: "공정개발팀", b: "신규 입사자와 QC-XRD 대응 TF 참여자는 볼트넷 왼쪽 메뉴 › 교육 자료를 먼저 읽어 주세요. 연구실 안전 · 정보보안 수칙도 같은 곳에 모았습니다." },
   { tag: "인사", c: "", t: "11월 신규 입사자 — 소재개발팀 김준하 연구원", d: "11-02", by: "경영지원팀", b: "기술연구소 소재개발팀에 김준하 연구원이 입사했습니다. 양극재 구조 분석을 맡습니다. 연구동에서 마주치면 반갑게 맞아 주세요." },
   { tag: "장비", c: "amber", t: "XRD-2 정기 점검 — 11/6(금) 오전 사용 불가", d: "11-03", by: "분석평가팀", b: "검출기 교정과 표준시편(Si) 측정을 합니다. 오전 측정은 XRD-1로 예약해 주세요." },
   { tag: "안전", c: "red", t: "소성로 사용 시 내열장갑 · 보안경 착용", d: "10-28", by: "공정개발팀", b: "1,000 °C 운전 중에는 문을 열지 않습니다. 시료는 200 °C 아래에서 꺼냅니다." },
-  { tag: "정보", c: "green", t: "사내 자료를 외부 AI 도구에 넣을 때", d: "10-20", by: "경영지원팀", b: "자료 열람 신청서에 넣을 도구와 범위를 적고 정보보안 확인을 받습니다. 확인이 끝난 범위 안에서만 씁니다." }
+  { tag: "정보", c: "green", t: "사내 자료를 외부 AI 도구에 넣을 때", d: "10-20", by: "경영지원팀", b: "자료 열람 신청서에 넣을 도구와 범위를 적고 소속 팀장 승인을 받습니다. 승인된 범위 안에서만 씁니다." }
 ];
 const SCHED = [
   { md: "11-05", t: "QC-XRD 대응 TF 첫 회의", w: "연구동 2층 회의실 · 15:00" },
@@ -1509,17 +1509,15 @@ const NEWS = [
 function steps(r) {
   const e = (Date.now() - r.t) / 1000, base = 9 * 60 + 52 + r.seq * 25;
   const L = [{ role: "기안", p: "me", at: 0, off: 0, c: "" },
-    { role: "승인", p: "do", at: 6, off: 15, c: "목적 확인했습니다. 품질회의 전에 결과 볼 수 있게 진행해요." },
-    { role: "합의", p: "jung", at: 12, off: 39, c: "재분석 결과는 사내 분석 용도로만 쓰고 외부로 내보내지 않는 조건으로 합의합니다." }];
-  if (r.ai) L.push({ role: "확인", p: "lee", at: 17, off: 52, c: "합성 데이터이고 개인정보가 없습니다. 신청서에 적은 범위 안에서 외부 AI 도구 입력을 허용합니다." });
-  L.push({ role: "처리", p: "yoon", at: r.ai ? 22 : 17, off: r.ai ? 66 : 51, c: `${r.t1 ? nas("분석평가팀") + " 읽기 권한" : ""}${r.t1 && r.t2 ? "과 " : ""}${r.t2 ? "LIMS 재분석 열람" : ""}을 열었습니다 (${r.d2}까지).` });
+    { role: "승인", p: "do", at: 6, off: 15, c: r.ai ? "목적과 외부 AI 도구 입력 범위 확인했습니다. 합성 데이터이고 개인정보가 없으니, 사내 분석 용도로 신청서에 적은 범위 안에서만 쓰는 조건으로 승인합니다. 품질회의 전에 결과 볼 수 있게 진행해요." : "목적 확인했습니다. 재분석 결과는 사내 분석 용도로만 쓰는 조건으로 승인합니다. 품질회의 전에 결과 볼 수 있게 진행해요." }];
+  L.push({ role: "처리", p: "yoon", at: 11, off: 27, c: `${r.t1 ? nas("분석평가팀") + " 읽기 권한" : ""}${r.t1 && r.t2 ? "과 " : ""}${r.t2 ? "LIMS 재분석 열람" : ""}을 열었습니다 (${r.d2}까지).` });
   return L.map(s => Object.assign({}, s, { done: e >= s.at, time: hm(base + s.off) }));
 }
 const complete = r => steps(r).every(s => s.done);
 const access = k => S.reqs.some(r => r[k] && complete(r));
 const doneReqs = () => S.reqs.filter(complete);
 const nextDoc = () => `VS-2611-${String(41 + S.reqs.length).padStart(4, "0")}`;
-const verb = { 승인: "승인했습니다", 합의: "합의했습니다", 확인: "확인했습니다" };
+const verb = { 승인: "승인했습니다" };
 function bellItems() {
   const ev = [];
   S.reqs.forEach(r => steps(r).forEach((s, i) => {
@@ -1541,8 +1539,6 @@ const approvalMail = r => {
 <p class="row-btns">${r.t1 ? `<a class="btn sm" href="#files-q3">${I("folder")}파일서버 열기</a>` : ""}${r.t2 ? `<a class="btn ghost sm" href="#lims">${I("flask")}배치 조회</a>` : ""}<a class="btn ghost sm" href="#approval-${r.id}">문서 보기</a></p><p class="muted">볼트넷 전자결재 · 보내기 전용 메일입니다.</p>` };
 };
 const allMails = () => doneReqs().slice().reverse().map(approvalMail).concat(MAILS);
-const chatUnread = () => (S.chatSeen ? 0 : 6) + Math.max(0, doneReqs().length - (S.chatReq || 0));
-const tfLive = () => TF.concat(doneReqs().flatMap(r => { const st = steps(r), last = st[st.length - 1]; return [{ p: "yoon", tm: last.time, t: `열람 권한 드렸어요. 파일서버 분석평가팀 → QC_XRD → 2026Q3에 있고, 배치 조회에서도 재분석 값이 보일 거예요.`, nw: true }].concat(r.ai ? [{ p: "do", tm: hm(9 * 60 + 52 + r.seq * 25 + 68), t: "AI 도구 입력도 정보보안 확인 났네요. 품질회의 전에 기존 방식 한계부터 숫자로 정리해 봐요.", nw: true }] : []); }));
 
 let tickSig = null, tickT = null;
 function tick() {
@@ -1552,7 +1548,7 @@ function tick() {
     const ev = bellItems()[0]; if (ev) toast(ev.t);
     badges();
     const h = location.hash.slice(1);
-    if (LOGGED && h !== "approval-new" && /^(portal|approval|files|file|lims|mail|chat)(-|$)/.test(h)) route(true);
+    if (LOGGED && h !== "approval-new" && /^(portal|approval|files|file|lims|mail)(-|$)/.test(h)) route(true);
   }
   tickSig = sig;
   if (S.reqs.some(r => !complete(r))) tickT = setTimeout(tick, 700);
@@ -1632,12 +1628,12 @@ const V = html => { $("#view").innerHTML = `<div class="vn-in">${html}${vfoot()}
 const setN = (id, n) => { const e = document.getElementById(id); if (e) { e.textContent = n; e.hidden = !n; } };
 function badges() {
   const mu = allMails().filter(isUnread).length;
-  setN("cnt-mail", mu); setN("dot-mail", mu); setN("cnt-chat", chatUnread());
+  setN("cnt-mail", mu); setN("dot-mail", mu);
   setN("cnt-appr", S.reqs.filter(r => !complete(r)).length);
   setN("dot-bell", Math.max(0, bellItems().length - S.bellSeen));
 }
 function setNav(name) {
-  const key = { portal: "portal", mail: "mail", att: "mail", chat: "chat", files: "files", file: "files", lims: "lims", approval: "approval", org: "org", edu: "edu" }[name] || "";
+  const key = { portal: "portal", mail: "mail", att: "mail", files: "files", file: "files", lims: "lims", approval: "approval", org: "org", edu: "edu" }[name] || "";
   $$(".vn-side a[data-r]").forEach(a => a.classList.toggle("on", a.dataset.r === key));
 }
 
@@ -1650,7 +1646,7 @@ function pageHome() {
     <div class="stats"><a href="#mail"><b>${allMails().filter(isUnread).length}</b>새 메일</a><a href="#mail-m1"><b>1</b>받은 업무</a><a href="#approval"><b>${pend}</b>결재 진행</a><button type="button" data-jump="notices"><b>${NOTICES.length}</b>공지</button></div></section>
   <div class="cols"><div>
     <div class="card"><div class="hd">${I("flask")}<h2>받은 업무</h2><span class="tag ${stage[1]}">${stage[0]}</span><a class="more" href="#mail-m1">메일 열기</a></div><div class="bd"><div class="task"><div class="ico">${I("mail")}</div><div style="min-width:0">
-      <h3>${esc(MAILS[1].subj)}</h3><p class="muted" style="font-size:14px">윤가람 선임 · 분석평가팀 · 11/4 (수) 17:42 · 참조 도현우 팀장</p>
+      <h3>${esc(MAILS.find(m => m.id === "m1").subj)}</h3><p class="muted" style="font-size:14px">윤가람 선임 · 분석평가팀 · 11/4 (수) 17:42 · 참조 도현우 팀장</p>
       <ul class="checks">${checks.map(c => `<li class="${c[1] ? "ok" : ""}"><span class="bx">${c[1] ? I("check") : ""}</span><span>${c[0]}</span></li>`).join("")}</ul>
       <div class="row-btns"><a class="btn sm" href="#mail-m1">${I("mail")}메일 읽기</a>${acc ? `<a class="btn ghost sm" href="#files-q3">${I("folder")}분석평가팀 자료</a>` : r ? `<a class="btn ghost sm" href="#approval-${r.id}">${I("sign")}결재 진행 보기</a>` : `<a class="btn ghost sm" href="#approval-new">${I("sign")}자료 열람 신청</a>`}<a class="btn ghost sm" href="#lims">${I("flask")}배치 조회</a></div>
     </div></div></div></div>
@@ -1660,7 +1656,7 @@ function pageHome() {
     </div></div>
     <div class="card" id="notices"><div class="hd">${I("mega")}<h2>공지</h2></div><div class="bd">${NOTICES.map(n => `<details class="nt"><summary><span class="tag ${n.c}">${n.tag}</span><span class="t">${n.t}</span><span class="mono muted" style="font-size:13px">${n.d.replace("-", ".")}</span></summary><p>${n.b} — ${n.by}</p></details>`).join("")}</div></div>
   </div><div>
-    <div class="card"><div class="hd">${I("grid")}<h2>바로가기</h2></div><div class="bd"><div class="quick">${[["#mail", "mail", "메일"], ["#chat", "chat", "메신저"], ["#files", "server", "파일서버"], ["#lims", "flask", "배치 조회"], ["#approval", "sign", "전자결재"], ["#org", "org", "조직도"]].map(q => `<a href="${q[0]}">${I(q[1])}${q[2]}</a>`).join("")}</div></div></div>
+    <div class="card"><div class="hd">${I("grid")}<h2>바로가기</h2></div><div class="bd"><div class="quick">${[["#mail", "mail", "메일"], ["#files", "server", "파일서버"], ["#lims", "flask", "배치 조회"], ["#approval", "sign", "전자결재"], ["#org", "org", "조직도"]].map(q => `<a href="${q[0]}">${I(q[1])}${q[2]}</a>`).join("")}</div></div></div>
     <div class="card"><div class="hd">${I("cal")}<h2>일정</h2></div><div class="bd"><ul class="list sched">${SCHED.map(s => `<li><div class="day"><b>${s.md.slice(3)}</b><span>${dow("2026-" + s.md)}요일</span></div><div class="t">${s.t}<div class="muted" style="font-size:13.5px">${s.w}</div></div></li>`).join("")}</ul></div></div>
     <div class="card"><div class="hd">${I("mega")}<h2>연구소 소식</h2></div><div class="bd news">${NEWS.map(x => `<article><span class="tag">${x.k}</span> <span class="mono muted" style="font-size:13px">${x.d.replace("-", ".")}</span><h3>${x.t}</h3><p>${x.b}</p></article>`).join("")}</div></div>
   </div></div>`);
@@ -1681,23 +1677,6 @@ function pageMail(id) {
   badges();
 }
 
-/* 메신저 */
-let thread = "tf";
-function pageChat() {
-  S.chatSeen = true; S.chatReq = doneReqs().length; saveS();
-  const tf = tfLive(), msgs = (thread === "tf" ? tf : DM).concat(typed[thread]);
-  const last = tf[tf.length - 1];
-  const av = id => `<span class="av" style="background:${{ do: "#2a78d6", yoon: "#1baf7a", lee: "#7a5af5", ma: "#c2702a" }[id] || "#4a5562"}">${P[id].n[0]}</span>`;
-  V(`${crumbs(["메신저"])}${head("메신저", "대화 2")}
-  <div class="card chatbox"><div class="thr"><button type="button" data-th="tf" class="${thread === "tf" ? "on" : ""}"><span class="r1"><span>도현우 · 윤가람 · 마준석 · 나</span><span class="mono">${last.tm}</span></span><b>QC-XRD 대응 TF</b></button><button type="button" data-th="dm" class="${thread === "dm" ? "on" : ""}"><span class="r1"><span>이소율 매니저</span><span class="mono">11.02</span></span><b>사원증은 본관 1층에서</b></button></div>
-  <div class="chat"><div class="chat-h"><b>${thread === "tf" ? "QC-XRD 대응 TF" : "이소율 매니저"}</b> <span class="muted" style="font-size:13.5px">${thread === "tf" ? "도현우 팀장 · 윤가람 선임 · 마준석 책임 · 나" : "경영지원팀"}</span></div>
-  <div class="msgs" id="msgs">${msgs.map(c => c.day ? `<div class="dayline">${c.day}</div>` : `<div class="m ${c.me ? "me" : ""} ${c.nw ? "new" : ""}">${c.me ? "" : av(c.p)}<div><div class="who">${c.me ? "나" : pn(c.p)} · <span class="mono">${c.tm}</span></div><div class="bub">${esc(c.t)}</div></div></div>`).join("")}</div>
-  <form class="compose" id="compose"><input id="msg" placeholder="메시지 입력 (데모: 이 화면에만 남는다)" aria-label="메시지"><button class="btn" type="submit">보내기</button></form></div></div>`);
-  const box = $("#msgs"); box.scrollTop = box.scrollHeight;
-  $$(".thr [data-th]").forEach(b => b.addEventListener("click", () => { thread = b.dataset.th; pageChat(); }));
-  $("#compose").addEventListener("submit", e => { e.preventDefault(); const v = $("#msg").value.trim(); if (!v) return; typed[thread].push({ me: true, tm: "09:41", t: v }); pageChat(); $("#msg").focus(); });
-  badges();
-}
 
 /* 파일서버 */
 function treeHTML(sel) {
@@ -1859,7 +1838,7 @@ async function pageLimsDetail(id) {
 /* 전자결재 */
 function signRow(r, preview) {
   const st = r ? steps(r) : null;
-  const roles = preview ? [["기안", "me"], ["승인", "do"], ["합의", "jung"]].concat(preview.ai ? [["확인", "lee"]] : []) : st.filter(s => s.role !== "처리").map(s => [s.role, s.p, s]);
+  const roles = preview ? [["기안", "me"], ["승인", "do"]] : st.filter(s => s.role !== "처리").map(s => [s.role, s.p, s]);
   return `<div class="signs-wrap"><div class="signs">${roles.map(([role, p, s]) => { const done = preview ? role === "기안" : s.done; return `<div class="sign"><div class="r">${role}</div><div class="s">${done ? `<span class="stamp ${!preview && s && s.at && (Date.now() - r.t) / 1000 - s.at < 1.2 ? "fresh" : ""}"><small>${P[p].s}</small>${P[p].n}</span>` : `<span class="wait">${preview ? P[p].n : "대기"}</span>`}</div><div class="t">${done ? (preview ? "작성 중" : s.time) : "—"}</div></div>`; }).join("")}</div></div>`;
 }
 function pageApproval(arg) {
@@ -1872,7 +1851,7 @@ function pageApproval(arg) {
     <div class="card"><div class="hd">${I("check")}<h2>결재함</h2><span class="muted" style="font-size:13.5px">내가 결재할 문서 0</span></div><div class="bd"><div class="empty">결재할 문서가 없다.</div></div></div>
   </div><div>
     <div class="card"><div class="hd">${I("file")}<h2>서식</h2></div><div class="bd"><ul class="list"><li><div class="t"><b>자료 열람 신청서</b><div class="muted" style="font-size:13.5px">다른 팀 폴더 · LIMS 재분석 값 · 외부 AI 도구 입력 확인</div></div><a class="btn ghost sm" href="#approval-new">쓰기</a></li></ul></div></div>
-    <div class="card"><div class="hd">${I("info")}<h2>결재선</h2></div><div class="bd"><ul class="list"><li>기안 → 소속 팀장 승인</li><li>자료 소유 팀장 합의</li><li>외부 AI 도구에 넣는다면 정보보안 확인</li><li>자료 담당이 권한을 연다</li></ul></div></div>
+    <div class="card"><div class="hd">${I("info")}<h2>결재선</h2></div><div class="bd"><ul class="list"><li>기안 → 소속 팀장 승인 (한 번)</li><li>외부 AI 도구에 넣는다면 도구와 범위도 팀장이 함께 승인</li><li>승인되면 자료 담당이 권한을 연다</li></ul></div></div>
   </div></div>`);
 }
 const PURPOSE = "QC XRD 판정 자동화 검토 — 현행 search-match가 놓치는 rock-salt 배치를 찾고, 11/13 품질회의에 개선 방향을 보고하기 위함 (윤가람 선임 협조 요청 건).";
@@ -1887,7 +1866,7 @@ function pageApprovalNew() {
     <tr><th>자료 소유</th><td>분석평가팀 (자료 담당 윤가람 선임 · 내선 2214)</td></tr>
     <tr><th><label for="pp">사용 목적</label></th><td><textarea id="pp" placeholder="무엇에 쓰는지 한두 문장"></textarea><div class="hint"><button class="linkbtn" type="button" id="ppfill">메일 건으로 채우기</button></div></td></tr>
     <tr><th>사용 기간</th><td><input type="date" id="d1" value="2026-11-05" aria-label="시작일"> ~ <input type="date" id="d2" value="2026-12-31" aria-label="끝나는 날"></td></tr>
-    <tr><th>외부 AI 도구</th><td><div class="radios" role="radiogroup" aria-label="외부 AI 도구 입력"><label><input type="radio" name="ai" value="1" checked> 넣는다</label><label><input type="radio" name="ai" value="0"> 넣지 않는다</label></div><textarea id="ais" aria-label="도구와 넣을 범위">Claude(코딩 에이전트) — 2026Q3 원시 패턴 · 재분석 CSV · 사내 분석 코드. 개인정보 없음.</textarea><div class="hint">넣는다면 정보보안 담당(경영지원팀 이소율 매니저)의 확인이 결재선에 붙는다.</div></td></tr>
+    <tr><th>외부 AI 도구</th><td><div class="radios" role="radiogroup" aria-label="외부 AI 도구 입력"><label><input type="radio" name="ai" value="1" checked> 넣는다</label><label><input type="radio" name="ai" value="0"> 넣지 않는다</label></div><textarea id="ais" aria-label="도구와 넣을 범위">Claude(코딩 에이전트) — 2026Q3 원시 패턴 · 재분석 CSV · 사내 분석 코드. 개인정보 없음.</textarea><div class="hint">넣을 도구와 범위는 팀장이 승인할 때 함께 확인한다.</div></td></tr>
     <tr><th>보안 서약</th><td><label class="cb"><input type="checkbox" id="ag"><span>열람한 자료를 사외로 내보내지 않고, 적은 목적 밖으로 쓰지 않는다.</span></label></td></tr>
   </tbody></table></div>
   <div class="row-btns" style="margin-top:16px"><button class="btn" type="submit">${I("check")}상신</button><a class="btn ghost" href="#approval">취소</a></div><p class="err" id="aerr" role="alert"></p></form>`);
@@ -2003,7 +1982,7 @@ function pageEdu() {
     ["기록과 공유", "사고와 아차 사고는 그날 공유", "설비 이상은 사용 전 점검표에 기록"]])}</div></div>
   <div class="card" id="edu-data"><div class="hd">${I("lock")}<h2>연구 데이터 · 정보보안</h2><span class="tag red">필수</span></div><div class="bd">${rules([
     ["팀별 권한", "연구 데이터는 팀 폴더별로 권한 분리", "다른 팀 자료는 열람 신청과 결재로 받기"],
-    ["외부 AI 도구", "사내 자료를 넣기 전 정보보안 확인", "확인받은 범위 안에서만 쓰고, 결과는 사람이 확인"],
+    ["외부 AI 도구", "사내 자료를 넣기 전 열람 신청서로 팀장 승인", "승인받은 범위 안에서만 쓰고, 결과는 사람이 확인"],
     ["판정 근거 보관", "XRD 원시 파일과 판정 결과를 배치별로 5년 보관", "재분석 결과는 사외로 내보내지 않기"]])}</div></div>`);
   $$(".edu-toc [data-to]").forEach(b => b.addEventListener("click", () => { const t = document.getElementById(b.dataset.to); if (t) t.scrollIntoView({ behavior: "smooth", block: "start" }); }));
 }
@@ -2204,7 +2183,7 @@ $("#bell-btn").addEventListener("click", () => {
   p.hidden = false; $("#bell-btn").setAttribute("aria-expanded", "true"); S.bellSeen = items.length; saveS(); badges();
 });
 $("#me-btn").addEventListener("click", () => { const p = $("#pop-me"), open = p.hidden; closePops(); if (open) { p.hidden = false; $("#me-btn").setAttribute("aria-expanded", "true"); } });
-$("#reset-btn").addEventListener("click", () => { S.read = []; S.reqs = []; S.chatSeen = false; S.chatReq = 0; S.bellSeen = 0; typed.tf = []; typed.dm = []; saveS(); closePops(); toast("데모를 처음 상태로 돌렸습니다."); location.hash = "portal"; route(); });
+$("#reset-btn").addEventListener("click", () => { S.read = []; S.reqs = []; S.bellSeen = 0; saveS(); closePops(); toast("데모를 처음 상태로 돌렸습니다."); location.hash = "portal"; route(); });
 $("#logout").addEventListener("click", () => { setLogin(false); closePops(); location.hash = "top"; });
 $("#login-form").addEventListener("submit", e => { e.preventDefault(); setLogin(true, $("#keep").checked); toast("김준하 연구원으로 로그인했습니다."); if (!PORTAL.test(location.hash.slice(1))) location.hash = "portal"; else route(); });
 $("#vsearch").addEventListener("submit", e => {
@@ -2216,8 +2195,8 @@ $("#vsearch").addEventListener("submit", e => {
 $("#vn-date").textContent = longDate(TODAY);
 
 /* ---------- 길 찾기 ---------- */
-const PORTAL = /^(portal|mail|chat|files|file|att|lims|approval|org|edu|search)(-|$)/;
-const PAGES = { portal: pageHome, mail: pageMail, chat: pageChat, files: pageFiles, file: id => pageFile(id, false), att: id => pageFile(id, true), lims: id => id ? pageLimsDetail(id) : pageLims(), approval: pageApproval, org: pageOrg, edu: pageEdu, search: pageSearch };
+const PORTAL = /^(portal|mail|files|file|att|lims|approval|org|edu|search)(-|$)/;
+const PAGES = { portal: pageHome, mail: pageMail, files: pageFiles, file: id => pageFile(id, false), att: id => pageFile(id, true), lims: id => id ? pageLimsDetail(id) : pageLims(), approval: pageApproval, org: pageOrg, edu: pageEdu, search: pageSearch };
 function route(keep) {
   const h = decodeURIComponent(location.hash.slice(1));
   if (!PORTAL.test(h)) {
