@@ -1,91 +1,72 @@
 """
-baseline_searchmatch.py — '기존 방식' 재현: 피크 리스트 기반 search-match 판정.
-
-상용 search-match의 기본 흐름을 단순화해 재현한다.
-  1) 배경 제거(SNIP) → 2) 자동 피크 검출(prominence ≥ 2 % of max) →
-  3) DB 참조선(NiO, bunsenite a=4.177 Å)과 ±0.20° 창 매칭 →
-  4) rock-salt 참조선이 '독립 피크'로 잡히면 불순물 검출 → 출하 불합격 판정.
-규칙화: 초격자 참조선(P4_332 전용) 중 하나라도 독립 피크로 잡히면 '규칙형' 판정.
+Baseline Search-Match Evaluator for VoltSpinel LNMO QC XRD v2 dataset (2-min routine scans).
 """
-import numpy as np, pandas as pd, os, json
+
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
 from scipy.signal import find_peaks
 
-KA1 = 1.54056
-A_NIO_DB = 4.1771          # DB 참조 (bunsenite NiO)
-A_SPINEL_DB = 8.1700       # DB 참조 LNMO
-WIN = 0.20
+DB_NIO_LINES = [37.25, 43.28, 62.87]
+DB_P4332_SUPER_LINES = [15.33, 24.36, 26.72]
 
 
-def tt_of(a, hkls):
-    d = a / np.sqrt(np.sum(np.array(hkls) ** 2, axis=1))
-    return np.degrees(2 * np.arcsin(KA1 / (2 * d)))
+def evaluate_baseline(data_dir: Path, pattern_subdir: str = "patterns_2min") -> None:
+    labels = pd.read_csv(data_dir / "labels.csv")
+    patterns_dir = data_dir / pattern_subdir
 
+    peak_cache = {}
+    for bid in labels["batch_id"]:
+        arr = np.loadtxt(patterns_dir / f"{bid}.xy")
+        tt, y = arr[:, 0], arr[:, 1]
+        bg_est = np.percentile(y, 15)
+        y_net = np.maximum(y - bg_est, 0.0)
+        peak_cache[bid] = (tt, y_net, float(np.max(y_net)))
 
-RS_LINES = tt_of(A_NIO_DB, [(1, 1, 1), (2, 0, 0)])
-SP_LINES = tt_of(A_SPINEL_DB, [(1, 1, 1), (3, 1, 1), (2, 2, 2), (4, 0, 0), (3, 3, 1),
-                               (5, 1, 1), (4, 4, 0), (5, 3, 1)])
-SUPER_LINES = tt_of(A_SPINEL_DB, [(2, 1, 0), (2, 1, 1), (3, 1, 0), (3, 2, 0), (4, 1, 0)])
+    configs = [(0.1, 2.0), (0.2, 2.0), (0.4, 2.0), (0.2, 0.5), (0.4, 0.5)]
+    summary_rows = []
+    for win_deg, thresh_pct in configs:
+        rs_detected, ord_detected = [], []
+        for bid in labels["batch_id"]:
+            tt, y_net, y_max = peak_cache[bid]
+            p_idx, _ = find_peaks(y_net, prominence=y_max * (thresh_pct / 100.0), distance=8)
+            p_pos = tt[p_idx]
+            rs_detected.append(any(np.any(np.abs(p_pos - ref) <= win_deg) for ref in DB_NIO_LINES))
+            ord_detected.append(any(np.any(np.abs(p_pos - ref) <= win_deg) for ref in DB_P4332_SUPER_LINES))
 
+        rs_det = np.array(rs_detected, dtype=bool)
+        ord_det = np.array(ord_detected, dtype=bool)
 
-def snip(y, it=60):
-    v = np.log(np.log(np.sqrt(np.clip(y, 0, None) + 1) + 1) + 1)
-    for p in range(1, it):
-        v[p:-p] = np.minimum(v[p:-p], 0.5 * (v[:-2 * p] + v[2 * p:]))
-    return (np.exp(np.exp(v) - 1) - 1) ** 2
+        is_fail = ~labels["rs_pass"].values
+        is_bound = labels["is_boundary_fail"].values
+        is_pass = labels["rs_pass"].values
+        is_ord = (labels["product_type"].values == "VS-5O")
 
+        summary_rows.append({
+            "window_deg": win_deg,
+            "threshold_pct": thresh_pct,
+            "fail_miss_pct": round(100.0 * float(np.mean(~rs_det[is_fail])), 1),
+            "boundary_miss_pct": round(100.0 * float(np.mean(~rs_det[is_bound])), 1),
+            "pass_fp_pct": round(100.0 * float(np.mean(rs_det[is_pass])), 1),
+            "ordered_recall_pct": round(100.0 * float(np.mean(ord_det[is_ord])), 1),
+            "ordered_fp_pct": round(100.0 * float(np.mean(ord_det[~is_ord])), 1),
+        })
 
-def detect_peaks(tt, y, rel_prom=0.02):
-    ys = y - snip(y)
-    idx, _ = find_peaks(ys, prominence=rel_prom * ys.max(), distance=5)
-    return tt[idx]
-
-
-def judge(tt, y):
-    pk = detect_peaks(tt, y)
-    # 스피넬 선에 이미 할당된 피크는 제외 (가장 가까운 참조선이 스피넬이면 스피넬로 간주)
-    def matched(lines, exclude=None):
-        hits = []
-        for L in lines:
-            near = pk[np.abs(pk - L) <= WIN]
-            for p in near:
-                if exclude is not None and np.min(np.abs(exclude - p)) < np.abs(L - p):
-                    continue
-                hits.append(p)
-        return hits
-    rs_hits = matched(RS_LINES, exclude=SP_LINES)
-    sup_hits = matched(SUPER_LINES, exclude=SP_LINES)
-    return dict(n_peaks=len(pk), rs_detected=len(rs_hits) > 0, ordered_detected=len(sup_hits) > 0)
-
-
-def main(data="../data"):
-    lab = pd.read_csv(os.path.join(data, "labels.csv"))
-    res = []
-    for _, r in lab.iterrows():
-        tt, y = np.loadtxt(os.path.join(data, "patterns", r.batch_id + ".xy"), unpack=True)
-        res.append(judge(tt, y))
-    out = pd.concat([lab, pd.DataFrame(res)], axis=1)
-    out["pred_pass"] = ~out.rs_detected
-    out.to_csv(os.path.join(data, "baseline_results.csv"), index=False)
-    tp_fail = ((~out.spec_pass) & (~out.pred_pass)).sum()
-    missed = ((~out.spec_pass) & (out.pred_pass)).sum()
-    false_alarm = ((out.spec_pass) & (~out.pred_pass)).sum()
-    bins = [0, 0.5, 1.0, 1.5, 2.5, 4, 10]
-    out["rs_bin"] = pd.cut(out.rs_wt, bins)
-    det = out.groupby(["rs_bin", "scan_min"], observed=True).rs_detected.mean().unstack()
-    ord_true = out.order_class == "ordered"
-    summary = dict(
-        n=len(out), n_fail_truth=int((~out.spec_pass).sum()),
-        caught=int(tp_fail), missed=int(missed), false_alarm=int(false_alarm),
-        pass_fail_accuracy=float((out.pred_pass == out.spec_pass).mean()),
-        miss_rate=float(missed / max((~out.spec_pass).sum(), 1)),
-        ordered_recall=float(out.ordered_detected[ord_true].mean()),
-        ordered_false_pos=float(out.ordered_detected[~ord_true].mean()),
-        detection_by_bin={str(k): {str(c): (None if pd.isna(v) else round(float(v), 3))
-                                   for c, v in row.items()} for k, row in det.iterrows()},
-    )
-    json.dump(summary, open(os.path.join(data, "baseline_summary.json"), "w"), indent=2)
-    print(json.dumps(summary, indent=2))
+    res_df = pd.DataFrame(summary_rows)
+    res_df.to_csv(data_dir / "baseline_results.csv", index=False)
+    with open(data_dir / "baseline_summary.json", "w", encoding="utf-8") as f:
+        json.dump(summary_rows, f, indent=2, ensure_ascii=False)
+    print(res_df.to_string(index=False))
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--data", type=str, default="../data")
+    parser.add_argument("--subdir", type=str, default="patterns_2min")
+    args = parser.parse_args()
+    evaluate_baseline(Path(args.data), args.subdir)

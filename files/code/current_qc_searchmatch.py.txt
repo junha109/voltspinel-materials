@@ -1,0 +1,67 @@
+"""현행 QC 판정 재현 — SOP-QC-XRD-03의 search-match (상용 프로그램 방식).
+
+평활(Savitzky–Golay 11점 · 3차) → SNIP 배경 제거 → 피크 목록 → DB NiO 참조선 ±0.2° 안에
+돌출도가 최댓값의 2 % 이상이고 계수 잡음의 4배 이상인 피크가 있으면 「rock-salt 검출 · 불합격」.
+볼트넷 배치 조회(LIMS)의 「현행 QC 판정」과 검출 피크 수가 이 코드로 나온다.
+
+실행: python current_qc_searchmatch.py --data ../data            (patterns_2min/, labels.csv가 있는 폴더)
+      python current_qc_searchmatch.py --data ../data --scan 10   (10분 정밀 스캔으로)
+"""
+from __future__ import annotations
+
+import argparse
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+from scipy.signal import find_peaks, savgol_coeffs, savgol_filter
+
+DB_NIO = (37.25, 43.28, 62.87)                 # DB NiO (111) · (200) · (220)
+SG_WIN, SG_ORD = 11, 3
+SG_VAR = float((savgol_coeffs(SG_WIN, SG_ORD) ** 2).sum())   # 평활 뒤 잡음 분산 비
+WIN_DEG, THR_PCT, NSIG = 0.2, 2.0, 4.0
+SPEC = 1.5
+
+
+def snip(y, it=60):
+    """LLS-SNIP 배경 (마지막 축 기준)."""
+    v = np.log(np.log(np.sqrt(np.clip(y, 0, None) + 1) + 1) + 1)
+    for p in range(1, it):
+        v[..., p:-p] = np.minimum(v[..., p:-p], 0.5 * (v[..., :-2 * p] + v[..., 2 * p:]))
+    return (np.exp(np.exp(v) - 1) - 1) ** 2
+
+
+def judge(tt, y, win=WIN_DEG, thr_pct=THR_PCT, nsig=NSIG):
+    """한 패턴 → (rock-salt 검출 여부, 검출 피크 수)."""
+    ys = savgol_filter(y, SG_WIN, SG_ORD)
+    bg = snip(ys)
+    net = ys - bg
+    pk, pr = find_peaks(net, prominence=0.0, distance=8)
+    z = pr["prominences"] / np.sqrt(np.clip(bg[pk], 1, None) * SG_VAR)
+    keep = (pr["prominences"] >= thr_pct / 100 * net.max()) & (z >= nsig)
+    pos = tt[pk][keep]
+    return bool(any(np.any(np.abs(pos - L) <= win) for L in DB_NIO)), int(keep.sum())
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--data", default="../data")
+    ap.add_argument("--scan", type=int, default=2, choices=[2, 10])
+    a = ap.parse_args()
+    d = Path(a.data)
+    lab = pd.read_csv(d / "labels.csv")
+    rows = []
+    for b in lab.batch_id:
+        tt, y = np.loadtxt(d / f"patterns_{a.scan}min" / f"{b}.xy", unpack=True)
+        det, n = judge(tt, y)
+        rows.append({"batch_id": b, "rs_detected": det, "n_peaks": n, "qc_pass": not det})
+    out = lab[["batch_id", "xrd_id", "rock_salt_wt_pct", "rs_pass"]].merge(pd.DataFrame(rows), on="batch_id")
+    fail = ~out.rs_pass
+    print(f"{a.scan}분 스캔 · 배치 {len(out)} · rock-salt 불합격 {int(fail.sum())}")
+    print(f"  놓침 {int((out.qc_pass & fail).sum())} ({(out.qc_pass & fail).sum() / fail.sum():.1%})"
+          f" · 오탐 {int((~out.qc_pass & ~fail).sum())} ({(~out.qc_pass & ~fail).sum() / (~fail).sum():.1%})")
+    out.to_csv(d / f"current_qc_{a.scan}min.csv", index=False)
+
+
+if __name__ == "__main__":
+    main()

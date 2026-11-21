@@ -1,135 +1,397 @@
 """
-generate_dataset.py — 가상 공정 시뮬레이터 + QC XRD 배치 데이터셋 생성.
+VoltSpinel Materials — Virtual Process Model & 406-Batch QC XRD Dataset Generator (v2).
 
-공정 레시피(1차 소성 온도, 700 °C 후어닐링 시간, 냉각 방식, QC 스캔 시간)를 넣으면
-문헌 경향에 맞춘 '정답' 상태(rock-salt wt%, 규칙화 분율, 격자상수, 결정자 크기)가
-정해지고, 그 상태로 Cu Kα XRD 패턴을 시뮬레이션한다.
-
-문헌 경향(근거):
-  - 900 °C 1차 소성 → 산소 손실, 무질서 LNMO + rock-salt 불순물 생성; 저온 재어닐링으로 회복
-  - 700 °C 근처에서 Ni/Mn 규칙화(P4_332), 어닐링 시간에 따라 규칙상 분율 증가
-  - 800 °C 이상에서 rock-salt 1→4 % 수준으로 증가(NPD 보고)
-수치 계수는 위 경향을 재현하도록 정한 '가상' 값이며 실측 데이터가 아니다.
-
-사용: python generate_dataset.py --n 400 --out ../data
+Preserves 100% bit-for-bit identical v1 ground-truth labels (using `rng = default_rng(seed)`),
+while drawing all v2 measurement conditions & Poisson noise from a separate RNG (`seed + 1`):
+  - 2-min routine scan (`patterns_2min/*.xy`, scale_counts_2min ~ U(4000, 8000))
+  - 10-min precision scan (`patterns_10min/*.xy`, 5x expected counts, independent Poisson noise)
+  - Instrument-dependent fluorescence background (`XRD-1`: 0.6-1.2, `XRD-2`: 0.12-0.25 of (400) height)
+  - Sample-height displacement (`displacement_mm ~ N(0, 0.08)` mm, R = 150 mm)
+  - Full 406 noise-free 2-min expected component files (`expected/*.npz`)
 """
-import argparse, json, os
+
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import math
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
+
 import numpy as np
-import warnings
-warnings.filterwarnings("ignore")
-from lnmo_xrd import (build_structures, reference_sticks, simulate_pattern, PHASES,
-                      A_ORD, KA1, KA2)
+import pandas as pd
 
-TT = np.round(np.arange(10.0, 90.0 + 1e-9, 0.02), 3)
-SPEC_RS_MAX = 1.5          # 출하 사양: rock-salt ≤ 1.5 wt%
-ORDER_BANDS = (0.3, 0.7)   # 규칙상 분율: <0.3 무질서형, 0.3–0.7 부분규칙(목표), >0.7 규칙형
+from lnmo_xrd import LNMOXRDSimulator, SimulationParams
 
 
-def process_model(recipe, rng):
-    """레시피 → 정답 상태 (가상 공정 모델)."""
-    T, t_ann, cooling = recipe["T_calc"], recipe["anneal_h"], recipe["cooling"]
-    rs0 = 0.2 + 6.0 / (1 + np.exp(-(T - 900) / 30))           # wt%, 산소 손실로 생성
-    rs = rs0 * np.exp(-t_ann / 18.0) * rng.lognormal(0, 0.12)  # 후어닐링으로 재흡수
-    f0 = 0.25 if cooling == "slow" else 0.05
-    f0 *= 1.0 if T < 950 else 0.6
-    f_ord = f0 + (1 - f0) * (1 - np.exp(-t_ann / 20.0))
-    f_ord = float(np.clip(f_ord + rng.normal(0, 0.03), 0, 1))
-    w_rs = float(np.clip(rs, 0, 15) / 100)
-    w_sp = 1 - w_rs
-    wfrac = {"ordered": w_sp * f_ord, "disordered": w_sp * (1 - f_ord), "rocksalt": w_rs}
-    lattice = {
-        "disordered": 8.170 + 0.0025 * rs0 + rng.normal(0, 0.0015),  # Mn3+ 증가 → 팽창
-        "ordered": A_ORD + rng.normal(0, 0.0010),
-        "rocksalt": 4.155 + rng.normal(0, 0.004),                    # Li/Ni/Mn 조성 산포
-    }
-    sp_size = 60 + 0.6 * (T - 800) + 0.8 * t_ann + rng.normal(0, 8)
-    size = {"disordered": sp_size, "ordered": sp_size,
-            "rocksalt": float(np.clip(35 + 0.15 * (T - 800) + rng.normal(0, 6), 15, 120))}
-    return wfrac, lattice, size, f_ord
+def classify_product_type(ordered_frac: float) -> str:
+    if ordered_frac < 0.3:
+        return "VS-5D"
+    elif ordered_frac <= 0.7:
+        return "VS-5H"
+    return "VS-5O"
 
 
-def order_class(f):
-    lo, hi = ORDER_BANDS
-    return "disordered" if f < lo else ("partial" if f <= hi else "ordered")
+def _q3_2026_dates(n_batches: int) -> List[str]:
+    start = dt.date(2026, 7, 1)
+    end = dt.date(2026, 9, 30)
+    weekdays = []
+    cur = start
+    while cur <= end:
+        if cur.weekday() < 5:
+            weekdays.append(cur)
+        cur += dt.timedelta(days=1)
+    idx = np.linspace(0, len(weekdays) - 1, n_batches)
+    return [weekdays[int(round(i))].isoformat() for i in idx]
 
 
-def random_recipe(rng):
-    return dict(T_calc=float(np.round(rng.uniform(800, 1000), 0)),
-                anneal_h=float(rng.choice([0, 0, 2, 5, 10, 20, 40, 60])),
-                cooling=str(rng.choice(["fast", "slow"])),
-                scan_min=int(rng.choice([2, 2, 10])))
+def sample_recipe_and_truth(
+    calc_T: float,
+    anneal_t: float,
+    cooling_mode: str,
+    furnace_id: str,
+    xrd_id: str,
+    rng: np.random.Generator,
+    deterministic: bool = False,
+    forced_stoich: Optional[Tuple[float, float, float]] = None,
+) -> Dict[str, object]:
+    """Identical to v1 so all ground-truth columns match v1 bit-for-bit."""
+    furnace_bias = {"F1": 0.0, "F2": 3.5, "F3": -2.5}[furnace_id]
+    T_eff = calc_T + (0.0 if deterministic else furnace_bias + rng.normal(0.0, 2.5))
 
+    if forced_stoich is not None:
+        li_ratio, ni_ratio, mn_ratio = forced_stoich
+    else:
+        li_vol_loss = 0.006 * max(0.0, (T_eff - 880.0) / 100.0)
+        excursion_roll = rng.random()
+        if excursion_roll < 0.08:
+            li_ratio = float(rng.uniform(0.945, 0.976))
+            d_ni = float(rng.normal(0.0, 0.008))
+            ni_ratio = 0.50 + d_ni
+            mn_ratio = 1.50 - d_ni + float(rng.normal(0.0, 0.004))
+        elif excursion_roll < 0.13:
+            li_ratio = float(rng.uniform(1.024, 1.055))
+            d_ni = float(rng.normal(0.0, 0.008))
+            ni_ratio = 0.50 + d_ni
+            mn_ratio = 1.50 - d_ni + float(rng.normal(0.0, 0.004))
+        elif excursion_roll < 0.19:
+            sign = float(rng.choice([-1.0, 1.0]))
+            shift = sign * float(rng.uniform(0.024, 0.052))
+            li_ratio = float(1.00 - li_vol_loss + rng.normal(0.0, 0.009))
+            ni_ratio = 0.50 + shift
+            mn_ratio = 1.50 - shift + float(rng.normal(0.0, 0.004))
+        else:
+            li_ratio = float(1.00 - li_vol_loss + rng.normal(0.0, 0.0085))
+            d_ni = float(rng.normal(0.0, 0.0075))
+            ni_ratio = 0.50 + d_ni
+            mn_ratio = 1.50 - d_ni + float(rng.normal(0.0, 0.003))
 
-SHOWCASE = [  # 홈페이지·발표용 대표 배치
-    ("S01", dict(T_calc=820, anneal_h=20, cooling="slow", scan_min=10)),
-    ("S02", dict(T_calc=900, anneal_h=0, cooling="fast", scan_min=10)),
-    ("S03", dict(T_calc=900, anneal_h=10, cooling="slow", scan_min=2)),
-    ("S04", dict(T_calc=950, anneal_h=0, cooling="fast", scan_min=2)),
-    ("S05", dict(T_calc=1000, anneal_h=0, cooling="fast", scan_min=10)),
-    ("S06", dict(T_calc=950, anneal_h=40, cooling="slow", scan_min=10)),
-]
+    li_ratio = round(float(np.clip(li_ratio, 0.92, 1.08)), 4)
+    ni_ratio = round(float(np.clip(ni_ratio, 0.43, 0.57)), 4)
+    mn_ratio = round(float(np.clip(mn_ratio, 1.43, 1.57)), 4)
 
+    d_li = li_ratio - 1.00
+    d_ni = ni_ratio - 0.50
+    d_mn = mn_ratio - 1.50
 
-def make_batch(bid, recipe, sticks, rng, out_dir, save_components=False):
-    wfrac, lattice, size, f_ord = process_model(recipe, rng)
-    inst = (0.004 * rng.uniform(0.85, 1.15), -0.002, 0.003 * rng.uniform(0.85, 1.15))
-    zero = float(rng.normal(0, 0.015))
-    counts = 4000 if recipe["scan_min"] == 2 else 20000
-    y, comps, bg = simulate_pattern(TT, wfrac, lattice, size, sticks, inst=inst,
-                                    zero_shift=zero, peak_counts=counts, rng=rng,
-                                    bg_coef=(counts * 0.012, -counts * 1.2e-4, counts * 6e-7),
-                                    return_components=True)
-    np.savetxt(os.path.join(out_dir, "patterns", f"{bid}.xy"),
-               np.column_stack([TT, y]), fmt="%.3f %.0f",
-               header=f"{bid} Cu Ka1/Ka2 2theta(deg) counts | synthetic QC XRD (VoltSpinel virtual)")
-    if save_components:
-        np.savez_compressed(os.path.join(out_dir, "components", f"{bid}.npz"),
-                            tt=TT, y=y, bg=bg, **{p: comps[p] for p in PHASES})
-    rs_wt = 100 * wfrac["rocksalt"]
-    return dict(batch_id=bid, **recipe,
-                rs_wt=round(rs_wt, 3), w_ordered=round(wfrac["ordered"], 4),
-                w_disordered=round(wfrac["disordered"], 4), f_ordered=round(f_ord, 3),
-                a_disordered=round(lattice["disordered"], 4), a_ordered=round(lattice["ordered"], 4),
-                a_rocksalt=round(lattice["rocksalt"], 4),
-                size_spinel_nm=round(size["ordered"], 1), size_rocksalt_nm=round(size["rocksalt"], 1),
-                zero_shift=round(zero, 4), peak_counts=counts,
-                spec_pass=bool(rs_wt <= SPEC_RS_MAX), order_class=order_class(f_ord))
+    rs0 = 0.2 + 6.0 / (1.0 + math.exp(-(T_eff - 900.0) / 30.0))
+    stoich_rs_mult = math.exp(6.0 * max(0.0, d_ni) + 4.0 * max(0.0, -d_li))
+    rs_mean = rs0 * math.exp(-anneal_t / 18.0) * stoich_rs_mult
+    rs_wt = rs_mean if deterministic else float(np.clip(rs_mean * np.exp(rng.normal(0.0, 0.07)), 0.05, 8.5))
 
+    f0 = 0.25 if cooling_mode == "slow" else 0.05
+    if T_eff >= 950.0:
+        f0 *= 0.6
+    f_mean = f0 + (1.0 - f0) * (1.0 - math.exp(-anneal_t / 20.0))
+    f_penalty = 1.0 - min(0.25, 2.5 * abs(d_ni) + 1.5 * abs(d_li))
+    f_ord = f_mean * f_penalty if deterministic else float(np.clip(f_mean * f_penalty + rng.normal(0.0, 0.025), 0.0, 1.0))
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--n", type=int, default=400)
-    ap.add_argument("--seed", type=int, default=20261105)
-    ap.add_argument("--out", default="../data")
-    a = ap.parse_args()
-    os.makedirs(os.path.join(a.out, "patterns"), exist_ok=True)
-    os.makedirs(os.path.join(a.out, "components"), exist_ok=True)
-    rng = np.random.default_rng(a.seed)
-    structs = build_structures()
-    sticks = reference_sticks(structs)
-    rows = [make_batch(bid, r, sticks, rng, a.out, save_components=True) for bid, r in SHOWCASE]
-    for i in range(a.n):
-        rows.append(make_batch(f"B{i+1:04d}", random_recipe(rng), sticks, rng, a.out,
-                               save_components=(i < 40)))
-    import csv
-    with open(os.path.join(a.out, "labels.csv"), "w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
-        w.writeheader(); w.writerows(rows)
-    for name, st in structs.items():
-        st.to(filename=os.path.join(a.out, f"ref_{name}.cif"))
-    meta = dict(
-        description="Synthetic QC XRD dataset for a virtual LNMO cathode maker (VoltSpinel). "
-                    "No experimental / DRX data used.",
-        two_theta=dict(start=10, stop=90, step=0.02), radiation=dict(Ka1=KA1, Ka2=KA2, ratio=0.5),
-        phases={"disordered": "LiNi0.5Mn1.5O4 Fd-3m", "ordered": "LiNi0.5Mn1.5O4 P4_332",
-                "rocksalt": "Li0.2Ni0.8O Fm-3m"},
-        spec=dict(rocksalt_wt_max=SPEC_RS_MAX, order_bands=ORDER_BANDS),
-        n_batches=len(rows), seed=a.seed,
-        overlap_windows=[[36.8, 38.8], [42.8, 44.9]],
+    mn3_factor = (1.0 / (1.0 + math.exp(-(T_eff - 890.0) / 32.0))) * math.exp(-anneal_t / 22.0)
+    cool_bonus = 0.0022 if cooling_mode == "rapid" else 0.0
+    stoich_a_shift = 0.16 * d_mn - 0.12 * d_li
+    a_dis = 8.1695 + 0.0155 * mn3_factor + cool_bonus + stoich_a_shift + (0.0 if deterministic else rng.normal(0.0, 0.0010))
+    a_ord = 8.1650 + 0.0032 * mn3_factor + 0.5 * stoich_a_shift + (0.0 if deterministic else rng.normal(0.0, 0.0007))
+
+    t_norm = np.clip((T_eff - 800.0) / 180.0, 0.0, 1.0)
+    rs_li_frac = float(
+        np.clip(
+            0.28 - 0.11 * t_norm + 0.04 * (1.0 - math.exp(-anneal_t / 24.0)) + 0.35 * d_li
+            + (0.0 if deterministic else rng.normal(0.0, 0.012)),
+            0.12,
+            0.34,
+        )
     )
-    json.dump(meta, open(os.path.join(a.out, "meta.json"), "w"), indent=2, ensure_ascii=False)
-    print(f"wrote {len(rows)} batches to {a.out}")
+    a_rs = float(np.clip(4.177 - 0.115 * rs_li_frac + (0.0 if deterministic else rng.normal(0.0, 0.0018)), 4.136, 4.167))
+
+    tm_8a_occ = float(
+        np.clip(
+            0.002 + 0.024 * mn3_factor + (0.006 if cooling_mode == "rapid" else 0.0) + 0.18 * max(0.0, -d_li)
+            + (0.0 if deterministic else rng.normal(0.0, 0.0025)),
+            0.0,
+            0.045,
+        )
+    )
+    u_o = float(
+        np.clip(
+            0.2623 + 0.0024 * mn3_factor + (0.0 if deterministic else rng.normal(0.0, 0.0003)),
+            0.2615,
+            0.2655,
+        )
+    )
+    pref_orient_r = float(
+        np.clip(
+            1.05 - 0.13 * t_norm + 0.02 * (1.0 - math.exp(-anneal_t / 30.0))
+            + (0.0 if deterministic else rng.normal(0.0, 0.018)),
+            0.88,
+            1.12,
+        )
+    )
+    cryst_sp = float(
+        np.clip(
+            58.0 + 55.0 * t_norm + 18.0 * (1.0 - math.exp(-anneal_t / 25.0))
+            + (0.0 if deterministic else rng.normal(0.0, 6.0)),
+            40.0,
+            155.0,
+        )
+    )
+    cryst_rs = float(np.clip(28.0 + 26.0 * t_norm + (0.0 if deterministic else rng.normal(0.0, 4.0)), 18.0, 75.0))
+    microstrain = float(
+        np.clip(
+            0.00035 + (0.00065 if cooling_mode == "rapid" else 0.00015) * math.exp(-anneal_t / 20.0)
+            + 0.00025 * mn3_factor + 0.003 * abs(d_ni)
+            + (0.0 if deterministic else rng.normal(0.0, 0.00008)),
+            0.00015,
+            0.0020,
+        )
+    )
+
+    inst_zero = -0.008 if xrd_id == "XRD-1" else 0.009
+    zero_shift = float(inst_zero + (0.0 if deterministic else rng.normal(0.0, 0.008)))
+    eta = float(np.clip(0.45 + (0.0 if deterministic else rng.normal(0.0, 0.04)), 0.30, 0.65))
+    scale_counts = float(52000.0 if deterministic else rng.uniform(38000.0, 68000.0))
+    bg_level = float(280.0 if deterministic else rng.uniform(210.0, 360.0))
+
+    rs_pass = bool(rs_wt <= 1.5)
+    stoich_pass = bool(
+        (abs(li_ratio - 1.00) <= 0.02 + 1e-9)
+        and (abs(ni_ratio - 0.50) <= 0.02 + 1e-9)
+        and (abs(mn_ratio - 1.50) <= 0.02 + 1e-9)
+    )
+    spec_pass = bool(rs_pass and stoich_pass)
+    if spec_pass:
+        fail_reason = "NONE"
+    elif (not rs_pass) and (not stoich_pass):
+        fail_reason = "BOTH"
+    elif not rs_pass:
+        fail_reason = "ROCK_SALT"
+    else:
+        fail_reason = "STOICHIOMETRY"
+
+    product_type = classify_product_type(f_ord)
+    is_boundary = bool(1.5 < rs_wt <= 2.5)
+
+    return {
+        "calcination_temp_C": round(float(calc_T), 1),
+        "post_anneal_hr": round(float(anneal_t), 1),
+        "cooling_mode": cooling_mode,
+        "li_ratio": li_ratio,
+        "ni_ratio": ni_ratio,
+        "mn_ratio": mn_ratio,
+        "rock_salt_wt_pct": round(rs_wt, 4),
+        "ordered_frac": round(f_ord, 4),
+        "product_type": product_type,
+        "rs_pass": rs_pass,
+        "stoich_pass": stoich_pass,
+        "spec_pass": spec_pass,
+        "qc_status": "PASS" if spec_pass else "FAIL",
+        "fail_reason": fail_reason,
+        "is_boundary_fail": is_boundary,
+        "a_spinel_dis_A": round(a_dis, 5),
+        "a_spinel_ord_A": round(a_ord, 5),
+        "a_rock_salt_A": round(a_rs, 5),
+        "crystallite_spinel_nm": round(cryst_sp, 1),
+        "crystallite_rs_nm": round(cryst_rs, 1),
+        "microstrain": round(microstrain, 6),
+        "u_o": round(u_o, 5),
+        "tm_8a_occ": round(tm_8a_occ, 5),
+        "pref_orient_r": round(pref_orient_r, 4),
+        "rs_li_frac": round(rs_li_frac, 4),
+        "zero_shift_deg": round(zero_shift, 4),
+        "eta": round(eta, 4),
+        "scale_counts": round(scale_counts, 1),
+        "bg_level": round(bg_level, 1),
+    }
+
+
+def generate_dataset(n_random: int = 400, out_dir: Path = Path("../data"), seed: int = 20261105) -> pd.DataFrame:
+    rng = np.random.default_rng(seed)        # v1 ground-truth RNG (untouched)
+    rng_m = np.random.default_rng(seed + 1)  # v2 measurement conditions & Poisson noise RNG
+
+    sim = LNMOXRDSimulator(two_theta_min=10.0, two_theta_max=90.0, step=0.02)
+
+    p2_dir = out_dir / "patterns_2min"
+    p10_dir = out_dir / "patterns_10min"
+    exp_dir = out_dir / "expected"
+    p2_dir.mkdir(parents=True, exist_ok=True)
+    p10_dir.mkdir(parents=True, exist_ok=True)
+    exp_dir.mkdir(parents=True, exist_ok=True)
+
+    special_specs = [
+        (820.0, 0.0, "rapid", "F1", "XRD-1", "REF_VS5D_PASS", (1.00, 0.50, 1.50)),
+        (915.0, 2.0, "rapid", "F2", "XRD-1", "REF_VS5D_FAIL_RS", (1.00, 0.50, 1.50)),
+        (865.0, 10.0, "slow", "F1", "XRD-2", "REF_VS5H_PASS", (1.00, 0.50, 1.50)),
+        (845.0, 12.0, "slow", "F3", "XRD-2", "REF_VS5H_FAIL_STOICH_ONLY", (0.96, 0.46, 1.54)),
+        (830.0, 36.0, "slow", "F3", "XRD-1", "REF_VS5O_PASS", (1.00, 0.50, 1.50)),
+        (945.0, 4.0, "rapid", "F2", "XRD-2", "REF_VS5D_FAIL_BOTH", (0.955, 0.54, 1.46)),
+    ]
+
+    total_n = n_random + len(special_specs)
+    dates = _q3_2026_dates(total_n)
+
+    recipe_specs = []
+    for _ in range(n_random):
+        campaign = rng.choice(["VS-5D", "VS-5H", "VS-5O"], p=[0.42, 0.33, 0.25])
+        if campaign == "VS-5D":
+            calc_T = float(rng.uniform(820.0, 965.0))
+            anneal_t = float(rng.choice([0.0, 0.0, 2.0, 4.0]) + rng.uniform(0.0, 2.0))
+            cooling = str(rng.choice(["rapid", "slow"], p=[0.80, 0.20]))
+        elif campaign == "VS-5H":
+            calc_T = float(rng.uniform(840.0, 955.0))
+            anneal_t = float(rng.uniform(6.0, 18.0))
+            cooling = str(rng.choice(["rapid", "slow"], p=[0.45, 0.55]))
+        else:
+            calc_T = float(rng.uniform(815.0, 945.0))
+            anneal_t = float(rng.uniform(22.0, 46.0))
+            cooling = str(rng.choice(["slow", "rapid"], p=[0.85, 0.15]))
+
+        furnace = str(rng.choice(["F1", "F2", "F3"], p=[0.35, 0.35, 0.30]))
+        xrd = str(rng.choice(["XRD-1", "XRD-2"]))
+        recipe_specs.append((calc_T, anneal_t, cooling, furnace, xrd, f"QC_{campaign}", None, False))
+
+    for calc_T, anneal_t, cooling, furnace, xrd, tag, forced_st in special_specs:
+        recipe_specs.append((calc_T, anneal_t, cooling, furnace, xrd, tag, forced_st, True))
+
+    truth_rows = []
+    for idx, (calc_T, anneal_t, cooling, furnace, xrd, tag, forced_st, is_ref) in enumerate(recipe_specs, start=1):
+        batch_id = f"VS26Q3-{idx:03d}"
+        row = sample_recipe_and_truth(
+            calc_T, anneal_t, cooling, furnace, xrd, rng, deterministic=is_ref, forced_stoich=forced_st
+        )
+        row["batch_id"] = batch_id
+        row["date"] = dates[idx - 1]
+        row["furnace_id"] = furnace
+        row["xrd_id"] = xrd
+        row["batch_tag"] = tag
+        row["is_reference"] = is_ref
+        truth_rows.append(row)
+
+    # Keep exact v1 has_components flags for 100% column compatibility
+    df_tmp = pd.DataFrame(truth_rows)
+    ref_ids = set(df_tmp[df_tmp["is_reference"]]["batch_id"].tolist())
+    non_ref = df_tmp[~df_tmp["is_reference"]]
+    comp_ids = set(ref_ids)
+    for reason, n_take in [("BOTH", 8), ("STOICHIOMETRY", 8), ("ROCK_SALT", 12), ("NONE", 12)]:
+        sub = non_ref[non_ref["fail_reason"] == reason]
+        if len(sub) > 0:
+            idxs = np.linspace(0, len(sub) - 1, min(n_take, len(sub))).round().astype(int)
+            comp_ids.update(sub.iloc[idxs]["batch_id"].tolist())
+    if len(comp_ids) < 46:
+        extra = non_ref[~non_ref["batch_id"].isin(comp_ids)]["batch_id"].tolist()
+        comp_ids.update(extra[: 46 - len(comp_ids)])
+    elif len(comp_ids) > 46:
+        non_ref_comp = [b for b in sorted(comp_ids) if b not in ref_ids]
+        for b in non_ref_comp[40:]:
+            comp_ids.remove(b)
+
+    records = []
+    for row in truth_rows:
+        bid = str(row["batch_id"])
+        xrd = str(row["xrd_id"])
+        row["has_components"] = bid in comp_ids
+
+        # v2 measurement parameters drawn strictly from rng_m
+        scale_2min = float(rng_m.uniform(4000.0, 8000.0))
+        bg_over_400 = float(rng_m.uniform(0.6, 1.2) if xrd == "XRD-1" else rng_m.uniform(0.12, 0.25))
+        displacement_mm = float(rng_m.normal(0.0, 0.08))
+
+        row["scale_counts_2min"] = round(scale_2min, 1)
+        row["bg_over_400"] = round(bg_over_400, 4)
+        row["displacement_mm"] = round(displacement_mm, 5)
+
+        params = SimulationParams(
+            rock_salt_wt_pct=float(row["rock_salt_wt_pct"]),
+            ordered_frac=float(row["ordered_frac"]),
+            li_ratio=float(row["li_ratio"]),
+            ni_ratio=float(row["ni_ratio"]),
+            mn_ratio=float(row["mn_ratio"]),
+            a_spinel_dis=float(row["a_spinel_dis_A"]),
+            a_spinel_ord=float(row["a_spinel_ord_A"]),
+            a_rock_salt=float(row["a_rock_salt_A"]),
+            crystallite_spinel_nm=float(row["crystallite_spinel_nm"]),
+            crystallite_rs_nm=float(row["crystallite_rs_nm"]),
+            microstrain=float(row["microstrain"]),
+            u_o=float(row["u_o"]),
+            tm_8a_occ=float(row["tm_8a_occ"]),
+            pref_orient_r=float(row["pref_orient_r"]),
+            rs_li_frac=float(row["rs_li_frac"]),
+            zero_shift_deg=float(row["zero_shift_deg"]),
+            displacement_mm=displacement_mm,
+            bg_over_400=bg_over_400,
+            eta=float(row["eta"]),
+            scale_counts=scale_2min,
+            bg_level=float(row["bg_level"]),
+            add_noise=False,
+        )
+        res = sim.simulate(params)
+
+        # Independent Poisson draws for 2-min and 10-min (5x expected)
+        y2 = rng_m.poisson(np.maximum(res["expected"], 1.0)).astype(np.float64)
+        y10 = rng_m.poisson(np.maximum(5.0 * res["expected"], 1.0)).astype(np.float64)
+
+        np.savetxt(p2_dir / f"{bid}.xy", np.column_stack([res["two_theta"], y2]), fmt="%.2f %.1f")
+        np.savetxt(p10_dir / f"{bid}.xy", np.column_stack([res["two_theta"], y10]), fmt="%.2f %.1f")
+
+        # Save all 406 noise-free 2-min expected component files
+        np.savez_compressed(
+            exp_dir / f"{bid}.npz",
+            two_theta=res["two_theta"].astype(np.float32),
+            expected=res["expected"].astype(np.float32),
+            background=res["background"].astype(np.float32),
+            disordered=res["disordered"].astype(np.float32),
+            ordered=res["ordered"].astype(np.float32),
+            rock_salt=res["rock_salt"].astype(np.float32),
+        )
+        records.append(row)
+
+    col_order = [
+        "batch_id", "date", "furnace_id", "xrd_id", "batch_tag", "is_reference",
+        "calcination_temp_C", "post_anneal_hr", "cooling_mode",
+        "li_ratio", "ni_ratio", "mn_ratio",
+        "rock_salt_wt_pct", "ordered_frac", "product_type",
+        "rs_pass", "stoich_pass", "spec_pass", "qc_status", "fail_reason", "is_boundary_fail",
+        "a_spinel_dis_A", "a_spinel_ord_A", "a_rock_salt_A",
+        "crystallite_spinel_nm", "crystallite_rs_nm", "microstrain",
+        "u_o", "tm_8a_occ", "pref_orient_r", "rs_li_frac",
+        "zero_shift_deg", "eta", "scale_counts", "bg_level", "has_components",
+        "scale_counts_2min", "bg_over_400", "displacement_mm",
+    ]
+    df = pd.DataFrame(records)[col_order]
+    df.to_csv(out_dir / "labels.csv", index=False)
+    return df
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--n", type=int, default=400)
+    parser.add_argument("--out", type=str, default="../data")
+    parser.add_argument("--seed", type=int, default=20261105)
+    args = parser.parse_args()
+
+    df = generate_dataset(n_random=args.n, out_dir=Path(args.out), seed=args.seed)
+    print(f"Generated v2 dataset: {len(df)} batches in {args.out}")
+    print("  QC Status:", df["qc_status"].value_counts().to_dict())
+    print("  Fail Reason:", df["fail_reason"].value_counts().to_dict())
+    print(f"  scale_counts_2min: [{df['scale_counts_2min'].min():.1f}, {df['scale_counts_2min'].max():.1f}]")
+    print(f"  bg_over_400 XRD-1: [{df[df['xrd_id']=='XRD-1']['bg_over_400'].min():.3f}, {df[df['xrd_id']=='XRD-1']['bg_over_400'].max():.3f}]")
+    print(f"  bg_over_400 XRD-2: [{df[df['xrd_id']=='XRD-2']['bg_over_400'].min():.3f}, {df[df['xrd_id']=='XRD-2']['bg_over_400'].max():.3f}]")
+    print(f"  displacement_mm std: {df['displacement_mm'].std():.4f} mm")
